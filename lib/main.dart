@@ -23,7 +23,7 @@ class StreamingApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Streaming App',
+      title: 'Khemnel',
       theme: AppColors.darkTheme,
       home: const LoginScreen(),
     );

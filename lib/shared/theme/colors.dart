@@ -200,8 +200,8 @@ class AppColors {
   //  STATUS — Minimal (no bright colors)
   // ─────────────────────────────────────────────
 
-  /// Error — white (consistent with monochrome aesthetic)
-  static const Color error = white;
+  /// Error — red accent
+  static const Color error = Color(0xFFFF3333);
 
   /// Error background
   static const Color errorBackground = grey900;
@@ -222,7 +222,7 @@ class AppColors {
     onSecondary: black,
     surface: blackSurface,
     onSurface: white,
-    error: white,
+    error: error,
     onError: black,
   );
 

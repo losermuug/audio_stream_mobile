@@ -3,6 +3,7 @@ import 'package:streaming_app/shared/theme/colors.dart';
 import 'package:streaming_app/shared/widgets/custom_text_field.dart';
 import 'package:streaming_app/shared/widgets/custom_button.dart';
 import 'package:streaming_app/shared/widgets/social_button.dart';
+import 'package:streaming_app/shared/widgets/custom_date_picker.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -20,6 +21,7 @@ class _SignupScreenState extends State<SignupScreen>
   final _confirmPasswordController = TextEditingController();
   bool _isLoading = false;
   bool _agreeToTerms = false;
+  DateTime? _selectedDate;
 
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
@@ -202,6 +204,27 @@ class _SignupScreenState extends State<SignupScreen>
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Нэрээ оруулна уу';
+                          }
+                          return null;
+                        },
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Date of Birth Field
+                      CustomDatePicker(
+                        labelText: 'Төрсөн огноо',
+                        hintText: 'Төрсөн огноогоо сонгоно уу',
+                        initialValue: _selectedDate,
+                        prefixIcon: const Icon(Icons.cake_outlined),
+                        onDateSelected: (date) {
+                          setState(() {
+                            _selectedDate = date;
+                          });
+                        },
+                        validator: (value) {
+                          if (value == null) {
+                            return 'Төрсөн огноогоо сонгоно уу';
                           }
                           return null;
                         },
