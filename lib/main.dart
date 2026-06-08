@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
-import 'package:streaming_app/features/auth/presentation/screens/login_screen.dart';
+import 'package:streaming_app/features/auth/presentation/pages/login_screen.dart';
+import 'package:streaming_app/features/home/presentation/home_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,7 +26,11 @@ class StreamingApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Khemnel',
       theme: AppColors.darkTheme,
-      home: const LoginScreen(),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const LoginScreen(),
+        '/home': (context) => const HomeScreen(),
+      },
     );
   }
 }

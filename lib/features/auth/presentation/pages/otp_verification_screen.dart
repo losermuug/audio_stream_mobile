@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
 import 'package:streaming_app/shared/widgets/custom_button.dart';
-import 'package:streaming_app/features/auth/presentation/screens/reset_password_screen.dart';
+import 'package:streaming_app/features/auth/presentation/pages/reset_password_screen.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String email;

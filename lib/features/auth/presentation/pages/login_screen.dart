@@ -3,8 +3,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
 import 'package:streaming_app/shared/widgets/custom_text_field.dart';
 import 'package:streaming_app/shared/widgets/custom_button.dart';
-import 'package:streaming_app/features/auth/presentation/screens/signup_screen.dart';
-import 'package:streaming_app/features/auth/presentation/screens/forgot_password_screen.dart';
+import 'package:streaming_app/features/auth/presentation/pages/signup_screen.dart';
+import 'package:streaming_app/features/auth/presentation/pages/forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -66,9 +66,12 @@ class _LoginScreenState extends State<LoginScreen>
   void _onLogin() {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() => _isLoading = true);
-      // TODO: Implement login logic
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) setState(() => _isLoading = false);
+      // Simulate login logic, then navigate to Home
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          Navigator.of(context).pushReplacementNamed('/home');
+        }
       });
     }
   }

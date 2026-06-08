@@ -105,9 +105,12 @@ class _SignupScreenState extends State<SignupScreen>
         return;
       }
       setState(() => _isLoading = true);
-      // TODO: Implement signup logic
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) setState(() => _isLoading = false);
+      // Simulate signup logic, then navigate to Home
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          Navigator.of(context).pushReplacementNamed('/home');
+        }
       });
     }
   }
@@ -209,26 +212,26 @@ class _SignupScreenState extends State<SignupScreen>
                         },
                       ),
 
-                      const SizedBox(height: 20),
+                      // const SizedBox(height: 20),
 
                       // Date of Birth Field
-                      CustomDatePicker(
-                        labelText: 'Төрсөн огноо',
-                        hintText: 'Төрсөн огноогоо сонгоно уу',
-                        initialValue: _selectedDate,
-                        prefixIcon: const Icon(Icons.cake_outlined),
-                        onDateSelected: (date) {
-                          setState(() {
-                            _selectedDate = date;
-                          });
-                        },
-                        validator: (value) {
-                          if (value == null) {
-                            return 'Төрсөн огноогоо сонгоно уу';
-                          }
-                          return null;
-                        },
-                      ),
+                      // CustomDatePicker(
+                      //   labelText: 'Төрсөн огноо',
+                      //   hintText: 'Төрсөн огноогоо сонгоно уу',
+                      //   initialValue: _selectedDate,
+                      //   prefixIcon: const Icon(Icons.cake_outlined),
+                      //   onDateSelected: (date) {
+                      //     setState(() {
+                      //       _selectedDate = date;
+                      //     });
+                      //   },
+                      //   validator: (value) {
+                      //     if (value == null) {
+                      //       return 'Төрсөн огноогоо сонгоно уу';
+                      //     }
+                      //     return null;
+                      //   },
+                      // ),
 
                       const SizedBox(height: 20),
 
@@ -445,20 +448,20 @@ class _SignupScreenState extends State<SignupScreen>
                         ],
                       ),
 
-                      const SizedBox(height: 24),
+                      // const SizedBox(height: 24),
 
                       // Social Buttons
-                      SocialButton(
-                        text: 'Google-ээр бүртгүүлэх',
-                        iconData: Icons.g_mobiledata_rounded,
-                        onPressed: () {},
-                      ),
-                      const SizedBox(height: 12),
-                      SocialButton(
-                        text: 'Apple-ээр бүртгүүлэх',
-                        iconData: Icons.apple_rounded,
-                        onPressed: () {},
-                      ),
+                      // SocialButton(
+                      //   text: 'Google-ээр бүртгүүлэх',
+                      //   iconData: Icons.g_mobiledata_rounded,
+                      //   onPressed: () {},
+                      // ),
+                      // const SizedBox(height: 12),
+                      // SocialButton(
+                      //   text: 'Apple-ээр бүртгүүлэх',
+                      //   iconData: Icons.apple_rounded,
+                      //   onPressed: () {},
+                      // ),
 
                       const SizedBox(height: 32),
 
