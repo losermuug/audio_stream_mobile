@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
 
@@ -72,75 +73,87 @@ class _CustomBottomNavState extends State<CustomBottomNav>
 
         return Container(
           decoration: BoxDecoration(
-            color: AppColors.black.withValues(alpha: 0.9),
             borderRadius: BorderRadius.circular(28),
-            border: Border.all(
-              color: AppColors.borderSubtle.withValues(alpha: 0.4),
-              width: 0.5,
-            ),
             boxShadow: [
               BoxShadow(
-                color: AppColors.black.withValues(alpha: 0.4),
-                blurRadius: 16,
+                color: AppColors.black.withValues(alpha: 0.55),
+                blurRadius: 24,
                 spreadRadius: 2,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-          child: Stack(
-            children: [
-              // Sliding active tab white pill background
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 280),
-                curve: Curves.easeOutCubic,
-                left: widget.currentIndex * itemWidth + (itemWidth - indicatorWidth) / 2,
-                top: 8, // Centered vertically in the 54px bar
-                child: Container(
-                  width: indicatorWidth,
-                  height: indicatorHeight,
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(19),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(28),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.navBarBackground.withValues(alpha: 0.8),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                    color: AppColors.borderSubtle.withValues(alpha: 0.8),
+                    width: 0.8,
                   ),
                 ),
-              ),
-              // Nav Items Row
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                child: Stack(
                   children: [
-                    _NavItem(
-                      index: 0,
-                      icon: Icons.home_rounded,
-                      isSelected: widget.currentIndex == 0,
-                      bounceAnimation: _bounceAnimations[0],
-                      onTap: _handleTap,
+                    // Sliding active tab white pill background
+                    AnimatedPositioned(
+                      duration: const Duration(milliseconds: 280),
+                      curve: Curves.easeOutCubic,
+                      left: widget.currentIndex * itemWidth + (itemWidth - indicatorWidth) / 2,
+                      top: 8, // Centered vertically in the 54px bar
+                      child: Container(
+                        width: indicatorWidth,
+                        height: indicatorHeight,
+                        decoration: BoxDecoration(
+                          color: AppColors.white,
+                          borderRadius: BorderRadius.circular(19),
+                        ),
+                      ),
                     ),
-                    _NavItem(
-                      index: 1,
-                      icon: Icons.search_rounded,
-                      isSelected: widget.currentIndex == 1,
-                      bounceAnimation: _bounceAnimations[1],
-                      onTap: _handleTap,
-                    ),
-                    _NavItem(
-                      index: 2,
-                      icon: Icons.library_music_rounded,
-                      isSelected: widget.currentIndex == 2,
-                      bounceAnimation: _bounceAnimations[2],
-                      onTap: _handleTap,
-                    ),
-                    _NavItem(
-                      index: 3,
-                      icon: Icons.person_rounded,
-                      isSelected: widget.currentIndex == 3,
-                      bounceAnimation: _bounceAnimations[3],
-                      onTap: _handleTap,
+                    // Nav Items Row
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _NavItem(
+                            index: 0,
+                            icon: Icons.home_rounded,
+                            isSelected: widget.currentIndex == 0,
+                            bounceAnimation: _bounceAnimations[0],
+                            onTap: _handleTap,
+                          ),
+                          _NavItem(
+                            index: 1,
+                            icon: Icons.search_rounded,
+                            isSelected: widget.currentIndex == 1,
+                            bounceAnimation: _bounceAnimations[1],
+                            onTap: _handleTap,
+                          ),
+                          _NavItem(
+                            index: 2,
+                            icon: Icons.library_music_rounded,
+                            isSelected: widget.currentIndex == 2,
+                            bounceAnimation: _bounceAnimations[2],
+                            onTap: _handleTap,
+                          ),
+                          _NavItem(
+                            index: 3,
+                            icon: Icons.person_rounded,
+                            isSelected: widget.currentIndex == 3,
+                            bounceAnimation: _bounceAnimations[3],
+                            onTap: _handleTap,
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
-            ],
+            ),
           ),
         );
       },

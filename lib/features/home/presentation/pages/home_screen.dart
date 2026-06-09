@@ -12,6 +12,7 @@ import 'package:streaming_app/features/home/presentation/widgets/section_header.
 import 'package:streaming_app/shared/widgets/gradient_album_art.dart';
 import 'package:streaming_app/features/search/presentation/pages/search_screen.dart';
 import 'package:streaming_app/features/home/presentation/pages/now_playing_screen.dart';
+import 'package:streaming_app/features/profile/presentation/pages/profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -326,10 +327,27 @@ class _HomeScreenState extends State<HomeScreen>
           const ValueKey('library_tab'),
         );
       case 3:
-        return _buildEmptyTab(
-          'Профайл',
-          Icons.person_rounded,
-          const ValueKey('profile_tab'),
+        return ProfileScreen(
+          key: const ValueKey('profile_tab'),
+          onTrackUploaded: (newTrack) {
+            setState(() {
+              _playlist.insert(1, newTrack);
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  '"${newTrack.title}" амжилттай цацагдлаа. Сүүлд сонссон жагсаалтад нэмэгдлээ!',
+                  style: const TextStyle(color: AppColors.white),
+                ),
+                backgroundColor: AppColors.grey900,
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 3),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            );
+          },
         );
       default:
         return const SizedBox.shrink();

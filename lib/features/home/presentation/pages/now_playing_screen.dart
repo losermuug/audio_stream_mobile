@@ -34,60 +34,26 @@ class NowPlayingScreen extends StatefulWidget {
   State<NowPlayingScreen> createState() => _NowPlayingScreenState();
 }
 
-class _NowPlayingScreenState extends State<NowPlayingScreen>
-    with TickerProviderStateMixin {
+class _NowPlayingScreenState extends State<NowPlayingScreen> {
   bool _isShuffleActive = false;
   bool _isRepeatActive = false;
   bool _isLiked = false;
   double _volume = 0.7;
 
-  late final AnimationController _pulseController;
-  late final Animation<double> _pulseAnimation;
-
   @override
   void initState() {
     super.initState();
     _isLiked = widget.track.isLiked;
-
-    // Pulsing animation for the album art when playing
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    );
-
-    _pulseAnimation = Tween<double>(begin: 0.98, end: 1.02).animate(
-      CurvedAnimation(
-        parent: _pulseController,
-        curve: Curves.easeInOut,
-      ),
-    );
-
-    if (widget.isPlaying) {
-      _pulseController.repeat(reverse: true);
-    }
   }
 
   @override
   void didUpdateWidget(covariant NowPlayingScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.isPlaying != oldWidget.isPlaying) {
-      if (widget.isPlaying) {
-        _pulseController.repeat(reverse: true);
-      } else {
-        _pulseController.stop();
-        _pulseController.animateTo(1.0, duration: const Duration(milliseconds: 300));
-      }
-    }
     if (widget.track.id != oldWidget.track.id) {
       _isLiked = widget.track.isLiked;
     }
   }
 
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    super.dispose();
-  }
 
   Duration _parseDuration(String durationStr) {
     final parts = durationStr.split(':');
@@ -207,52 +173,49 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                   // ── Album Cover Art ──
                   Expanded(
                     child: Center(
-                      child: ScaleTransition(
-                        scale: _pulseAnimation,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 400),
-                          curve: Curves.easeOutCubic,
-                          width: 280,
-                          height: 280,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(28),
-                            boxShadow: [
-                              BoxShadow(
-                                color: primaryGlowColor.withValues(
-                                  alpha: widget.isPlaying ? 0.35 : 0.15,
-                                ),
-                                blurRadius: widget.isPlaying ? 32 : 18,
-                                spreadRadius: widget.isPlaying ? 4 : 1,
-                                offset: const Offset(0, 8),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeOutCubic,
+                        width: 280,
+                        height: 280,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(28),
+                          boxShadow: [
+                            BoxShadow(
+                              color: primaryGlowColor.withValues(
+                                alpha: widget.isPlaying ? 0.35 : 0.15,
                               ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(28),
-                            child: hasImage
-                                ? Image.asset(
-                                    widget.track.imagePath!,
-                                    fit: BoxFit.cover,
-                                    width: 280,
-                                    height: 280,
-                                  )
-                                : Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: widget.track.gradientColors,
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
-                                    ),
-                                    child: const Center(
-                                      child: Icon(
-                                        Icons.music_note_rounded,
-                                        color: AppColors.white,
-                                        size: 72,
-                                      ),
+                              blurRadius: widget.isPlaying ? 32 : 18,
+                              spreadRadius: widget.isPlaying ? 4 : 1,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(28),
+                          child: hasImage
+                              ? Image.asset(
+                                  widget.track.imagePath!,
+                                  fit: BoxFit.cover,
+                                  width: 280,
+                                  height: 280,
+                                )
+                              : Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: widget.track.gradientColors,
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
                                     ),
                                   ),
-                          ),
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.music_note_rounded,
+                                      color: AppColors.white,
+                                      size: 72,
+                                    ),
+                                  ),
+                                ),
                         ),
                       ),
                     ),

@@ -21,7 +21,7 @@ class Track {
 }
 
 class MockData {
-  static const List<Track> recentlyPlayed = [
+  static List<Track> recentlyPlayed = [
     Track(
       id: 'r1',
       title: 'Улаанбаатарын Нулимс',
@@ -56,7 +56,7 @@ class MockData {
     ),
   ];
 
-  static const List<Track> recommended = [
+  static List<Track> recommended = [
     Track(
       id: 'rec1',
       title: 'Энгийн Зүйлс',
