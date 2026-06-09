@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
 import 'package:streaming_app/shared/widgets/custom_text_field.dart';
-import 'package:streaming_app/shared/widgets/custom_button.dart';
+import 'package:streaming_app/features/auth/presentation/widgets/custom_button.dart';
 import 'package:streaming_app/features/auth/presentation/pages/signup_screen.dart';
 import 'package:streaming_app/features/auth/presentation/pages/forgot_password_screen.dart';
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
 import 'package:streaming_app/shared/widgets/custom_text_field.dart';
-import 'package:streaming_app/shared/widgets/custom_button.dart';
+import 'package:streaming_app/features/auth/presentation/widgets/custom_button.dart';
 import 'package:streaming_app/features/auth/presentation/pages/otp_verification_screen.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {

@@ -87,7 +87,7 @@ class _CustomTextFieldState extends State<CustomTextField>
   Widget build(BuildContext context) {
     return _AnimBuilder(
       animation: _borderAnimation,
-      builder: (context, child) {
+      builder: (context) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -236,17 +236,15 @@ class _CustomTextFieldState extends State<CustomTextField>
 }
 
 class _AnimBuilder extends AnimatedWidget {
-  final Widget Function(BuildContext context, Widget? child) builder;
-  final Widget? child;
+  final Widget Function(BuildContext context) builder;
 
   const _AnimBuilder({
     required Animation<double> animation,
     required this.builder,
-    this.child,
   }) : super(listenable: animation);
 
   @override
   Widget build(BuildContext context) {
-    return builder(context, child);
+    return builder(context);
   }
 }

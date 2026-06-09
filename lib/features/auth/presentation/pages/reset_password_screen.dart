@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
 import 'package:streaming_app/shared/widgets/custom_text_field.dart';
-import 'package:streaming_app/shared/widgets/custom_button.dart';
+import 'package:streaming_app/features/auth/presentation/widgets/custom_button.dart';
+
 
 class ResetPasswordScreen extends StatefulWidget {
   const ResetPasswordScreen({super.key});
@@ -438,7 +439,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen>
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: _AnimBuilder(
               animation: _successController,
-              builder: (context, child) {
+              builder: (context) {
                 return Opacity(
                   opacity: _successOpacityAnimation.value,
                   child: Transform.scale(
@@ -513,17 +514,15 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen>
 }
 
 class _AnimBuilder extends AnimatedWidget {
-  final Widget Function(BuildContext context, Widget? child) builder;
-  final Widget? child;
+  final Widget Function(BuildContext context) builder;
 
   const _AnimBuilder({
     required Animation<double> animation,
     required this.builder,
-    this.child,
   }) : super(listenable: animation);
 
   @override
   Widget build(BuildContext context) {
-    return builder(context, child);
+    return builder(context);
   }
 }

@@ -12,6 +12,7 @@ class TrackTile extends StatefulWidget {
   final bool isGridStyle;
   final VoidCallback onTap;
   final IconData defaultIcon;
+  final String? imagePath;
 
   const TrackTile({
     super.key,
@@ -22,6 +23,7 @@ class TrackTile extends StatefulWidget {
     this.isGridStyle = false,
     required this.onTap,
     this.defaultIcon = Icons.music_note_rounded,
+    this.imagePath,
   });
 
   @override
@@ -137,6 +139,7 @@ class _TrackTileState extends State<TrackTile>
                   icon: widget.defaultIcon,
                   iconSize: 48,
                   iconOpacity: 0.35,
+                  imagePath: widget.imagePath,
                   boxShadow: [
                     BoxShadow(
                       color: glowColor.withValues(alpha: 0.25),
@@ -219,6 +222,7 @@ class _TrackTileState extends State<TrackTile>
                 icon: widget.defaultIcon,
                 iconSize: 24,
                 iconOpacity: 1.0,
+                imagePath: widget.imagePath,
                 boxShadow: [
                   BoxShadow(
                     color: widget.gradientColors.isNotEmpty

@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
+import 'package:streaming_app/features/home/presentation/widgets/control_button.dart';
+
 
 class MiniPlayer extends StatefulWidget {
   final String title;
@@ -11,6 +13,8 @@ class MiniPlayer extends StatefulWidget {
   final double progress;
   final VoidCallback onPlayPauseTap;
   final VoidCallback? onLikeTap;
+  final String? imagePath;
+  final VoidCallback? onTap;
 
   const MiniPlayer({
     super.key,
@@ -21,6 +25,8 @@ class MiniPlayer extends StatefulWidget {
     required this.progress,
     required this.onPlayPauseTap,
     this.onLikeTap,
+    this.imagePath,
+    this.onTap,
   });
 
   @override
@@ -116,10 +122,12 @@ class _MiniPlayerState extends State<MiniPlayer>
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
@@ -158,7 +166,7 @@ class _MiniPlayerState extends State<MiniPlayer>
 
 
                     // ── Skip Back ──────────────────
-                    _buildControlButton(
+                    ControlButton(
                       icon: Icons.skip_previous_rounded,
                       size: 22,
                       onTap: () {},
@@ -168,14 +176,14 @@ class _MiniPlayerState extends State<MiniPlayer>
                     _buildPlayPauseButton(),
 
                     // ── Skip Forward ───────────────
-                    _buildControlButton(
+                    ControlButton(
                       icon: Icons.skip_next_rounded,
                       size: 22,
                       onTap: () {},
                     ),
 
                     // ── Like Button ────────────────
-                    _buildControlButton(
+                    ControlButton(
                       icon: Icons.favorite_border_rounded,
                       size: 20,
                       onTap: widget.onLikeTap ??
@@ -199,6 +207,7 @@ class _MiniPlayerState extends State<MiniPlayer>
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -206,6 +215,7 @@ class _MiniPlayerState extends State<MiniPlayer>
   //  Album Art — 52×52, rounded, rotates when playing
   // ──────────────────────────────────────────────
   Widget _buildAlbumArt() {
+    final hasImage = widget.imagePath != null;
     return GestureDetector(
       onTap: widget.onPlayPauseTap,
       child: AnimatedContainer(
@@ -215,11 +225,13 @@ class _MiniPlayerState extends State<MiniPlayer>
         height: 52,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          gradient: LinearGradient(
-            colors: widget.gradientColors,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          gradient: hasImage
+              ? null
+              : LinearGradient(
+                  colors: widget.gradientColors,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
           boxShadow: [
             if (widget.isPlaying)
               BoxShadow(
@@ -229,13 +241,41 @@ class _MiniPlayerState extends State<MiniPlayer>
               ),
           ],
         ),
-        child: Center(
-          child: Icon(
-            Icons.music_note_rounded,
-            color: AppColors.white.withValues(alpha: 0.85),
-            size: 24,
-          ),
-        ),
+        child: hasImage
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset(
+                  widget.imagePath!,
+                  width: 52,
+                  height: 52,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: widget.gradientColors,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Center(
+                        child: Icon(
+                          Icons.music_note_rounded,
+                          color: AppColors.white.withValues(alpha: 0.85),
+                          size: 24,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              )
+            : Center(
+                child: Icon(
+                  Icons.music_note_rounded,
+                  color: AppColors.white.withValues(alpha: 0.85),
+                  size: 24,
+                ),
+              ),
       ),
     );
   }
@@ -335,30 +375,7 @@ class _MiniPlayerState extends State<MiniPlayer>
     );
   }
 
-  // ──────────────────────────────────────────────
-  //  Generic icon button for skip / like
-  // ──────────────────────────────────────────────
-  Widget _buildControlButton({
-    required IconData icon,
-    required double size,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 32,
-        height: 32,
-        child: Center(
-          child: Icon(
-            icon,
-            color: AppColors.iconDefault,
-            size: size,
-          ),
-        ),
-      ),
-    );
-  }
+
 
   // ──────────────────────────────────────────────
   //  Progress Bar — gradient glow on played portion

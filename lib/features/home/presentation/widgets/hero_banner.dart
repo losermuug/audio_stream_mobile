@@ -11,6 +11,7 @@ class HeroBanner extends StatefulWidget {
   final String badgeText;
   final List<Color> gradientColors;
   final VoidCallback onPlayTap;
+  final String? imagePath;
 
   const HeroBanner({
     super.key,
@@ -20,6 +21,7 @@ class HeroBanner extends StatefulWidget {
     required this.badgeText,
     required this.gradientColors,
     required this.onPlayTap,
+    this.imagePath,
   });
 
   @override
@@ -118,6 +120,45 @@ class _HeroBannerState extends State<HeroBanner>
             borderRadius: BorderRadius.circular(24),
             child: Stack(
               children: [
+                // ── Base background image if available ──
+                if (widget.imagePath != null)
+                  Positioned.fill(
+                    child: Image.asset(
+                      widget.imagePath!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        debugPrint('HeroBanner Image Load Error: $error');
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              'Image Error: $error',
+                              style: const TextStyle(color: Colors.red, fontSize: 10),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                // ── Image overlay gradient for readability ──
+                if (widget.imagePath != null)
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.15),
+                            Colors.black.withValues(alpha: 0.65),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
                 // ── Decorative circles for depth ──
                 _buildDecoCircle(
                   right: -20,

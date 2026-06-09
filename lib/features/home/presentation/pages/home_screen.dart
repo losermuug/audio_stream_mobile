@@ -1,14 +1,17 @@
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
 import 'package:streaming_app/features/home/domain/track.dart';
-import 'package:streaming_app/shared/widgets/hero_banner.dart';
-import 'package:streaming_app/shared/widgets/track_tile.dart';
-import 'package:streaming_app/shared/widgets/mini_player.dart';
-import 'package:streaming_app/shared/widgets/custom_bottom_nav.dart';
-import 'package:streaming_app/shared/widgets/section_header.dart';
+import 'package:streaming_app/features/home/presentation/widgets/hero_banner.dart';
+import 'package:streaming_app/features/home/presentation/widgets/track_tile.dart';
+import 'package:streaming_app/features/home/presentation/widgets/mini_player.dart';
+import 'package:streaming_app/features/home/presentation/widgets/custom_bottom_nav.dart';
+import 'package:streaming_app/features/home/presentation/widgets/section_header.dart';
+
 import 'package:streaming_app/shared/widgets/gradient_album_art.dart';
 import 'package:streaming_app/features/search/presentation/pages/search_screen.dart';
+import 'package:streaming_app/features/home/presentation/pages/now_playing_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,6 +29,16 @@ class _HomeScreenState extends State<HomeScreen>
   Track _currentTrack = MockData.featuredHero;
   bool _isPlaying = false;
   double _progress = 0.35;
+
+  Timer? _progressTimer;
+  StateSetter? _nowPlayingStateSetter;
+  bool _isNowPlayingOpen = false;
+
+  final List<Track> _playlist = [
+    MockData.featuredHero,
+    ...MockData.recentlyPlayed,
+    ...MockData.recommended,
+  ];
 
   // ── Staggered section entrance animations ──
   late final AnimationController _staggerController;
@@ -69,11 +82,13 @@ class _HomeScreenState extends State<HomeScreen>
     });
 
     _staggerController.forward();
+    _startProgressTimer();
   }
 
   @override
   void dispose() {
     _staggerController.dispose();
+    _progressTimer?.cancel();
     super.dispose();
   }
 
@@ -88,17 +103,122 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  Duration _parseDuration(String durationStr) {
+    final parts = durationStr.split(':');
+    if (parts.length == 2) {
+      final mins = int.tryParse(parts[0]) ?? 0;
+      final secs = int.tryParse(parts[1]) ?? 0;
+      return Duration(minutes: mins, seconds: secs);
+    }
+    return const Duration(minutes: 3, seconds: 30);
+  }
+
+  void _startProgressTimer() {
+    _progressTimer?.cancel();
+    _progressTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_isPlaying) {
+        setState(() {
+          final totalSecs = _parseDuration(_currentTrack.duration).inSeconds;
+          if (totalSecs > 0) {
+            _progress = (_progress + 1 / totalSecs).clamp(0.0, 1.0);
+            if (_progress >= 1.0) {
+              _progress = 0.0;
+              _playNextTrack();
+            }
+          }
+        });
+        _nowPlayingStateSetter?.call(() {});
+      }
+    });
+  }
+
+  void _playNextTrack() {
+    final currentIndex = _playlist.indexWhere((t) => t.id == _currentTrack.id);
+    if (currentIndex != -1 && currentIndex < _playlist.length - 1) {
+      _onTrackSelected(_playlist[currentIndex + 1]);
+    } else {
+      _onTrackSelected(_playlist.first);
+    }
+  }
+
+  void _playPreviousTrack() {
+    final currentIndex = _playlist.indexWhere((t) => t.id == _currentTrack.id);
+    if (currentIndex != -1 && currentIndex > 0) {
+      _onTrackSelected(_playlist[currentIndex - 1]);
+    } else {
+      _onTrackSelected(_playlist.last);
+    }
+  }
+
   void _onTrackSelected(Track track) {
     setState(() {
       _currentTrack = track;
       _isPlaying = true;
       _progress = 0.0;
     });
+    _nowPlayingStateSetter?.call(() {});
+    _showNowPlaying(track);
   }
 
   void _togglePlayback() {
     setState(() {
       _isPlaying = !_isPlaying;
+    });
+    _nowPlayingStateSetter?.call(() {});
+  }
+
+  void _showNowPlaying(Track track) {
+    if (_isNowPlayingOpen) {
+      _nowPlayingStateSetter?.call(() {});
+      return;
+    }
+
+    _isNowPlayingOpen = true;
+    final double statusBarHeight = MediaQuery.of(context).padding.top;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            _nowPlayingStateSetter = setSheetState;
+            return NowPlayingScreen(
+              track: _currentTrack,
+              isPlaying: _isPlaying,
+              progress: _progress,
+              statusBarHeight: statusBarHeight,
+              onPlayPauseTap: () {
+                _togglePlayback();
+                setSheetState(() {});
+              },
+              onProgressChanged: (val) {
+                setState(() {
+                  _progress = val;
+                });
+                setSheetState(() {});
+              },
+              onNextTap: () {
+                _playNextTrack();
+                setSheetState(() {});
+              },
+              onPreviousTap: () {
+                _playPreviousTrack();
+                setSheetState(() {});
+              },
+              onLikeTap: () {
+                // Toggle like status or update state
+              },
+            );
+          },
+        );
+      },
+    ).then((_) {
+      _isNowPlayingOpen = false;
+      _nowPlayingStateSetter = null;
     });
   }
 
@@ -176,6 +296,7 @@ class _HomeScreenState extends State<HomeScreen>
                         badgeText: 'онцлох дуу',
                         gradientColors:
                             MockData.featuredHero.gradientColors,
+                        imagePath: MockData.featuredHero.imagePath,
                         onPlayTap: () =>
                             _onTrackSelected(MockData.featuredHero),
                       ),
@@ -254,6 +375,8 @@ class _HomeScreenState extends State<HomeScreen>
                     isPlaying: _isPlaying,
                     progress: _progress,
                     onPlayPauseTap: _togglePlayback,
+                    imagePath: _currentTrack.imagePath,
+                    onTap: () => _showNowPlaying(_currentTrack),
                   ),
                   const SizedBox(height: 8),
                   // Bottom Navigation (floating pill)
@@ -459,6 +582,7 @@ class _HomeScreenState extends State<HomeScreen>
                       borderRadius: 0,
                       gradientColors: track.gradientColors,
                       iconSize: 22,
+                      imagePath: track.imagePath,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -537,6 +661,7 @@ class _HomeScreenState extends State<HomeScreen>
                 subtitle: track.artist,
                 gradientColors: track.gradientColors,
                 isGridStyle: true,
+                imagePath: track.imagePath,
                 onTap: () => _onTrackSelected(track),
               );
             },
@@ -582,6 +707,7 @@ class _HomeScreenState extends State<HomeScreen>
                 duration: playlist.duration,
                 gradientColors: playlist.gradientColors,
                 defaultIcon: Icons.playlist_play_rounded,
+                imagePath: playlist.imagePath,
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(

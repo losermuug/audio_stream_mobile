@@ -555,6 +555,7 @@ class _SearchResultTileState extends State<_SearchResultTile> {
                 borderRadius: 10,
                 gradientColors: widget.track.gradientColors,
                 iconSize: 20,
+                imagePath: widget.track.imagePath,
                 boxShadow: [
                   BoxShadow(
                     color: widget.track.gradientColors.last

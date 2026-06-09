@@ -13,6 +13,7 @@ class GradientAlbumArt extends StatelessWidget {
   final double iconSize;
   final double iconOpacity;
   final List<BoxShadow>? boxShadow;
+  final String? imagePath;
 
   const GradientAlbumArt({
     super.key,
@@ -23,6 +24,7 @@ class GradientAlbumArt extends StatelessWidget {
     this.iconSize = 20,
     this.iconOpacity = 0.7,
     this.boxShadow,
+    this.imagePath,
   });
 
   @override
@@ -30,25 +32,57 @@ class GradientAlbumArt extends StatelessWidget {
     final List<Color> colors =
         gradientColors.isNotEmpty ? gradientColors : [AppColors.grey800, AppColors.grey700];
 
+    final hasImage = imagePath != null;
+
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(borderRadius),
-        gradient: LinearGradient(
-          colors: colors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
         boxShadow: boxShadow,
+        gradient: hasImage
+            ? null
+            : LinearGradient(
+                colors: colors,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
       ),
-      child: Center(
-        child: Icon(
-          icon,
-          color: AppColors.white.withValues(alpha: iconOpacity),
-          size: iconSize,
-        ),
-      ),
+      child: hasImage
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(borderRadius),
+              child: Image.asset(
+                imagePath!,
+                width: size,
+                height: size,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: colors,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        icon,
+                        color: AppColors.white.withValues(alpha: iconOpacity),
+                        size: iconSize,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            )
+          : Center(
+              child: Icon(
+                icon,
+                color: AppColors.white.withValues(alpha: iconOpacity),
+                size: iconSize,
+              ),
+            ),
     );
   }
 }

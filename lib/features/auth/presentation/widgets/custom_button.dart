@@ -77,7 +77,7 @@ class _CustomButtonState extends State<CustomButton>
       onTap: isDisabled ? null : widget.onPressed,
       child: _AnimBuilder(
         animation: _scaleAnimation,
-        builder: (context, child) {
+        builder: (context) {
           return Transform.scale(
             scale: _scaleAnimation.value,
             child: AnimatedContainer(
@@ -168,17 +168,15 @@ class _CustomButtonState extends State<CustomButton>
 }
 
 class _AnimBuilder extends AnimatedWidget {
-  final Widget Function(BuildContext context, Widget? child) builder;
-  final Widget? child;
+  final Widget Function(BuildContext context) builder;
 
   const _AnimBuilder({
     required Animation<double> animation,
     required this.builder,
-    this.child,
   }) : super(listenable: animation);
 
   @override
   Widget build(BuildContext context) {
-    return builder(context, child);
+    return builder(context);
   }
 }

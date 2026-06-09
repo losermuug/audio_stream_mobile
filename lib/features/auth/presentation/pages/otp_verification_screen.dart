@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
-import 'package:streaming_app/shared/widgets/custom_button.dart';
+import 'package:streaming_app/features/auth/presentation/widgets/custom_button.dart';
 import 'package:streaming_app/features/auth/presentation/pages/reset_password_screen.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
@@ -209,7 +209,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen>
                     Center(
                       child: _AnimBuilder(
                         animation: _pulseAnimation,
-                        builder: (context, child) {
+                        builder: (context) {
                           return Transform.scale(
                             scale: _pulseAnimation.value,
                             child: Container(
@@ -439,17 +439,15 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen>
 }
 
 class _AnimBuilder extends AnimatedWidget {
-  final Widget Function(BuildContext context, Widget? child) builder;
-  final Widget? child;
+  final Widget Function(BuildContext context) builder;
 
   const _AnimBuilder({
     required Animation<double> animation,
     required this.builder,
-    this.child,
   }) : super(listenable: animation);
 
   @override
   Widget build(BuildContext context) {
-    return builder(context, child);
+    return builder(context);
   }
 }
