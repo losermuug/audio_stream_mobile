@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
 import 'package:streaming_app/features/home/domain/track.dart';
 import 'package:streaming_app/features/profile/presentation/pages/publish_song_screen.dart';
+import 'package:streaming_app/features/profile/presentation/widgets/user_identity_card.dart';
+import 'package:streaming_app/features/profile/presentation/widgets/setting_tile.dart';
 
 class ProfileScreen extends StatelessWidget {
   final Function(Track)? onTrackUploaded;
@@ -176,7 +178,11 @@ class ProfileScreen extends StatelessWidget {
                 children: [
                   const SizedBox(height: 16),
                   // ── User Identity Section ──
-                  _buildUserCard(),
+                  const UserIdentityCard(
+                    userName: 'Мөнхзул',
+                    userRole: 'Premium сонсогч',
+                    avatarAsset: 'assets/image/avatar_user.png',
+                  ),
                   const SizedBox(height: 32),
 
                   // ── Settings List Section ──
@@ -212,80 +218,6 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildUserCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: AppColors.borderSubtle.withValues(alpha: 0.5),
-          width: 0.8,
-        ),
-      ),
-      child: Column(
-        children: [
-          // User Avatar Image with solid white outline
-          Container(
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: AppColors.white.withValues(alpha: 0.15),
-                width: 1.5,
-              ),
-            ),
-            child: const CircleAvatar(
-              radius: 48,
-              backgroundColor: AppColors.grey800,
-              backgroundImage: AssetImage('assets/image/avatar_user.png'),
-            ),
-          ),
-          const SizedBox(height: 16),
-          // User Name
-          const Text(
-            'Анужин',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              letterSpacing: -0.3,
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Premium badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.white.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: AppColors.white.withValues(alpha: 0.12),
-                width: 0.5,
-              ),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.circle, color: AppColors.white, size: 6),
-                SizedBox(width: 5),
-                Text(
-                  'Premium сонсогч',
-                  style: TextStyle(
-                    color: AppColors.grey100,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSettingsList(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
@@ -298,12 +230,16 @@ class ProfileScreen extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _buildSettingTile('Хувийн мэдээлэл', Icons.person_outline_rounded, null, first: true, onTap: () {}),
+          SettingTile(
+            title: 'Хувийн мэдээлэл',
+            icon: Icons.person_outline_rounded,
+            first: true,
+            onTap: () {},
+          ),
           _buildDivider(),
-          _buildSettingTile(
-            'Уран бүтээл цацах',
-            Icons.album_rounded,
-            null,
+          SettingTile(
+            title: 'Уран бүтээл цацах',
+            icon: Icons.album_rounded,
             onTap: () {
               Navigator.push(
                 context,
@@ -316,70 +252,28 @@ class ProfileScreen extends StatelessWidget {
             },
           ),
           _buildDivider(),
-          _buildSettingTile('Дууны чанар', Icons.graphic_eq_rounded, 'Хамгийн өндөр', onTap: () {}),
-          _buildDivider(),
-          _buildSettingTile('Төхөөрөмжүүд', Icons.devices_rounded, '1 идэвхтэй', onTap: () {}),
-          _buildDivider(),
-          _buildSettingTile('Мэдэгдэл', Icons.notifications_none_rounded, 'Асаалттай', last: true, onTap: () {}),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSettingTile(
-    String title,
-    IconData icon,
-    String? trailingText, {
-    bool first = false,
-    bool last = false,
-    VoidCallback? onTap,
-  }) {
-    final radius = BorderRadius.only(
-      topLeft: first ? const Radius.circular(20) : Radius.zero,
-      topRight: first ? const Radius.circular(20) : Radius.zero,
-      bottomLeft: last ? const Radius.circular(20) : Radius.zero,
-      bottomRight: last ? const Radius.circular(20) : Radius.zero,
-    );
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: radius,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Row(
-            children: [
-              Icon(icon, color: AppColors.white, size: 20),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              if (trailingText != null) ...[
-                Text(
-                  trailingText,
-                  style: const TextStyle(
-                    color: AppColors.textTertiary,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-              const Icon(
-                Icons.arrow_forward_ios_rounded,
-                color: AppColors.grey700,
-                size: 14,
-              ),
-            ],
+          SettingTile(
+            title: 'Дууны чанар',
+            icon: Icons.graphic_eq_rounded,
+            trailingText: 'Хамгийн өндөр',
+            onTap: () {},
           ),
-        ),
+          _buildDivider(),
+          SettingTile(
+            title: 'Төхөөрөмжүүд',
+            icon: Icons.devices_rounded,
+            trailingText: '1 идэвхтэй',
+            onTap: () {},
+          ),
+          _buildDivider(),
+          SettingTile(
+            title: 'Мэдэгдэл',
+            icon: Icons.notifications_none_rounded,
+            trailingText: 'Асаалттай',
+            last: true,
+            onTap: () {},
+          ),
+        ],
       ),
     );
   }

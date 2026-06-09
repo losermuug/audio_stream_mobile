@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
 import 'package:streaming_app/features/home/domain/track.dart';
 import 'package:streaming_app/shared/widgets/custom_text_field.dart';
+import 'package:streaming_app/features/profile/presentation/widgets/publish_selector_card.dart';
+import 'package:streaming_app/features/profile/presentation/widgets/mock_upload_card.dart';
+import 'package:streaming_app/features/profile/presentation/widgets/publishing_progress_view.dart';
+import 'package:streaming_app/features/profile/presentation/widgets/publish_success_view.dart';
 
 class PublishSongScreen extends StatefulWidget {
   final Function(Track)? onTrackPublished;
@@ -84,7 +88,7 @@ class _PublishSongScreenState extends State<PublishSongScreen> {
           final newTrack = Track(
             id: 'tr_${DateTime.now().millisecondsSinceEpoch}',
             title: _titleController.text.trim(),
-            artist: 'Анужин', // Logged in User/Artist
+            artist: 'Мөнхзул', // Logged in User/Artist
             duration: '3:20',
             gradientColors: const [
               Color(0xFF1A1A1A),
@@ -133,10 +137,20 @@ class _PublishSongScreenState extends State<PublishSongScreen> {
 
   Widget _buildBody() {
     if (_publishSuccess) {
-      return _buildSuccessView();
+      return PublishSuccessView(
+        trackTitle: _titleController.text.trim(),
+        isAlbum: _isAlbum,
+        albumName: _albumNameController.text.trim(),
+        selectedGenre: _selectedGenre,
+        isExplicit: _isExplicit,
+        onBackPressed: () => Navigator.pop(context),
+      );
     }
     if (_isPublishing) {
-      return _buildPublishingProgressView();
+      return PublishingProgressView(
+        currentStep: _currentStep,
+        steps: _publishSteps,
+      );
     }
     return _buildFormView();
   }
@@ -181,7 +195,7 @@ class _PublishSongScreenState extends State<PublishSongScreen> {
             Row(
               children: [
                 Expanded(
-                  child: _buildSelectorCard(
+                  child: PublishSelectorCard(
                     title: 'Сингл (Single)',
                     subtitle: 'Ганц дуу',
                     icon: Icons.music_note_rounded,
@@ -191,7 +205,7 @@ class _PublishSongScreenState extends State<PublishSongScreen> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _buildSelectorCard(
+                  child: PublishSelectorCard(
                     title: 'Цомог (Album)',
                     subtitle: 'Олон дууны цомог',
                     icon: Icons.album_rounded,
@@ -318,7 +332,7 @@ class _PublishSongScreenState extends State<PublishSongScreen> {
             Row(
               children: [
                 Expanded(
-                  child: _buildMockUploadCard(
+                  child: MockUploadCard(
                     title: 'Аудио файл (.mp3)',
                     subtitle: _hasAudio ? 'audio_track.mp3' : 'Дуу сонгох',
                     icon: Icons.audiotrack_rounded,
@@ -328,7 +342,7 @@ class _PublishSongScreenState extends State<PublishSongScreen> {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: _buildMockUploadCard(
+                  child: MockUploadCard(
                     title: 'Хавтасны зураг',
                     subtitle: _hasCover ? 'cover_art.png' : 'Зураг сонгох',
                     icon: Icons.image_rounded,
@@ -376,288 +390,5 @@ class _PublishSongScreenState extends State<PublishSongScreen> {
     );
   }
 
-  Widget _buildSelectorCard({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.cardBackground.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? AppColors.white : AppColors.borderSubtle,
-            width: isSelected ? 1.5 : 0.8,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? AppColors.white : AppColors.iconDefault,
-              size: 24,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: TextStyle(
-                color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
-                fontSize: 14,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: const TextStyle(
-                color: AppColors.textTertiary,
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildMockUploadCard({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required bool hasFile,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-        decoration: BoxDecoration(
-          color: AppColors.cardBackground.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: hasFile ? AppColors.white : AppColors.borderSubtle,
-            width: 1,
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              hasFile ? Icons.check_circle_outline_rounded : icon,
-              color: hasFile ? AppColors.white : AppColors.iconDefault,
-              size: 28,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: TextStyle(
-                color: hasFile ? AppColors.textSecondary : AppColors.textTertiary,
-                fontSize: 11,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ──────────────────────────────────────────────
-  //  Publishing Progress View
-  // ──────────────────────────────────────────────
-  Widget _buildPublishingProgressView() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Center(
-              child: SizedBox(
-                width: 50,
-                height: 50,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  color: AppColors.white,
-                  backgroundColor: AppColors.borderSubtle,
-                ),
-              ),
-            ),
-            const SizedBox(height: 40),
-            const Text(
-              'Өгөгдлийн санд шинэ бичилт хийж байна',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Display transactions steps progress
-            ...List.generate(_publishSteps.length, (index) {
-              final isDone = index < _currentStep;
-              final isCurrent = index == _currentStep;
-              return Container(
-                margin: const EdgeInsets.only(bottom: 14),
-                child: Row(
-                  children: [
-                    Icon(
-                      isDone
-                          ? Icons.check_circle_rounded
-                          : isCurrent
-                              ? Icons.sync_rounded
-                              : Icons.radio_button_unchecked_rounded,
-                      color: isDone || isCurrent ? AppColors.white : AppColors.grey700,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        _publishSteps[index],
-                        style: TextStyle(
-                          color: isDone || isCurrent ? AppColors.textPrimary : AppColors.textTertiary,
-                          fontSize: 13,
-                          fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ──────────────────────────────────────────────
-  //  Success View
-  // ──────────────────────────────────────────────
-  Widget _buildSuccessView() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Glowing Vinyl Disk Outline
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.white.withValues(alpha: 0.15), width: 3),
-              ),
-              child: const Center(
-                child: Icon(
-                  Icons.album_rounded,
-                  color: AppColors.white,
-                  size: 64,
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-            const Icon(
-              Icons.check_circle_outline_rounded,
-              color: AppColors.white,
-              size: 48,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Амжилттай цацагдлаа!',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                letterSpacing: -0.5,
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Released metadata detail box
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.cardBackground.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.borderSubtle, width: 0.5),
-              ),
-              child: Column(
-                children: [
-                  _buildSuccessDetailRow('Дууны нэр:', _titleController.text.trim()),
-                  _buildSuccessDetailRow('Уран бүтээлч:', 'Анужин'),
-                  _buildSuccessDetailRow('Төрөл:', _isAlbum ? 'Цомог (Album)' : 'Сингл (Single)'),
-                  if (_isAlbum) _buildSuccessDetailRow('Цомгийн нэр:', _albumNameController.text.trim()),
-                  _buildSuccessDetailRow('Дууны төрөл:', _selectedGenre),
-                  _buildSuccessDetailRow('Хязгаарлалт:', _isExplicit ? 'Explicit (18+)' : 'Тохиромжтой'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 40),
-
-            // Back button
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.white,
-                foregroundColor: AppColors.black,
-                minimumSize: const Size(double.infinity, 56),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 0,
-              ),
-              child: const Text(
-                'Нүүр хуудас руу буцах',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSuccessDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(color: AppColors.textTertiary, fontSize: 13),
-          ),
-          Text(
-            value,
-            style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
-    );
-  }
 }
