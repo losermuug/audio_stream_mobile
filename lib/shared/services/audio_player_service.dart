@@ -17,7 +17,13 @@ class AudioPlayerService {
 
   // Dynamically resolve backend base URL
   static String get baseUrl {
-    // For physical device testing, we use your MacBook's local network IP.
+    // Read from environment variable passed via --dart-define-from-file=.env or --dart-define=API_URL=...
+    const String envApiUrl = String.fromEnvironment('API_URL');
+    if (envApiUrl.isNotEmpty) {
+      return envApiUrl;
+    }
+
+    // For physical device testing, we use your MacBook's local network IP as fallback.
     // Make sure your phone and MacBook are connected to the same Wi-Fi network.
     const String macbookIp = '10.1.0.17';
 

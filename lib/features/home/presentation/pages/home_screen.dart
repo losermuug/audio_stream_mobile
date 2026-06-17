@@ -45,6 +45,7 @@ class _HomeScreenState extends State<HomeScreen>
   );
   bool _isPlaying = false;
   double _progress = 0.0;
+  bool _isMiniPlayerDismissed = false;
 
   final AudioPlayerService _audioService = AudioPlayerService();
   StreamSubscription? _positionSubscription;
@@ -249,6 +250,7 @@ class _HomeScreenState extends State<HomeScreen>
       _position = Duration.zero;
       _duration = Duration.zero;
       _progress = 0.0;
+      _isMiniPlayerDismissed = false;
     });
     
     // Play track via just_audio streaming
@@ -273,6 +275,9 @@ class _HomeScreenState extends State<HomeScreen>
       _audioService.pause();
     } else {
       _audioService.play();
+      setState(() {
+        _isMiniPlayerDismissed = false;
+      });
     }
   }
 
@@ -581,18 +586,67 @@ class _HomeScreenState extends State<HomeScreen>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Mini Player (floating card)
-                  MiniPlayer(
-                    title: _currentTrack.title,
-                    artist: _currentTrack.artist,
-                    gradientColors: _currentTrack.gradientColors,
-                    isPlaying: _isPlaying,
-                    progress: _progress,
-                    onPlayPauseTap: _togglePlayback,
-                    isLiked: _currentTrack.isLiked,
-                    onLikeTap: () => _toggleLikeTrack(_currentTrack),
-                    imagePath: _currentTrack.imagePath,
-                    onTap: () => _showNowPlaying(_currentTrack),
-                  ),
+                  if (!_isMiniPlayerDismissed && _currentTrack.id.isNotEmpty)
+                    Dismissible(
+                      key: Key('mini_player_${_currentTrack.id}'),
+                      direction: DismissDirection.horizontal,
+                      onDismissed: (direction) {
+                        setState(() {
+                          _isMiniPlayerDismissed = true;
+                        });
+                        _audioService.pause();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text(
+                              'Тоглуулагчийг хаалаа',
+                              style: TextStyle(color: AppColors.white),
+                            ),
+                            backgroundColor: AppColors.grey900,
+                            duration: const Duration(seconds: 2),
+                            action: SnackBarAction(
+                              label: 'Буцаах',
+                              textColor: AppColors.white,
+                              onPressed: () {
+                                setState(() {
+                                  _isMiniPlayerDismissed = false;
+                                });
+                                _audioService.play();
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                      background: Container(
+                        alignment: Alignment.centerLeft,
+                        padding: const EdgeInsets.only(left: 20),
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Icon(Icons.close_rounded, color: AppColors.white),
+                      ),
+                      secondaryBackground: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 20),
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Icon(Icons.close_rounded, color: AppColors.white),
+                      ),
+                      child: MiniPlayer(
+                        title: _currentTrack.title,
+                        artist: _currentTrack.artist,
+                        gradientColors: _currentTrack.gradientColors,
+                        isPlaying: _isPlaying,
+                        progress: _progress,
+                        onPlayPauseTap: _togglePlayback,
+                        isLiked: _currentTrack.isLiked,
+                        onLikeTap: () => _toggleLikeTrack(_currentTrack),
+                        imagePath: _currentTrack.imagePath,
+                        onTap: () => _showNowPlaying(_currentTrack),
+                      ),
+                    ),
                   const SizedBox(height: 8),
                   // Bottom Navigation (floating pill)
                   CustomBottomNav(
