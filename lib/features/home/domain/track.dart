@@ -18,6 +18,26 @@ class Track {
     this.isLiked = false,
     this.imagePath,
   });
+
+  Track copyWith({
+    String? id,
+    String? title,
+    String? artist,
+    String? duration,
+    List<Color>? gradientColors,
+    bool? isLiked,
+    String? imagePath,
+  }) {
+    return Track(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      artist: artist ?? this.artist,
+      duration: duration ?? this.duration,
+      gradientColors: gradientColors ?? this.gradientColors,
+      isLiked: isLiked ?? this.isLiked,
+      imagePath: imagePath ?? this.imagePath,
+    );
+  }
 }
 
 class MockData {

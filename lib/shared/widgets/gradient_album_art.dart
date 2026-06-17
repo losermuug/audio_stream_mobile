@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
+import 'package:streaming_app/shared/services/audio_player_service.dart';
 
 /// A rounded gradient square that acts as an album art placeholder.
 ///
@@ -32,7 +33,7 @@ class GradientAlbumArt extends StatelessWidget {
     final List<Color> colors =
         gradientColors.isNotEmpty ? gradientColors : [AppColors.grey800, AppColors.grey700];
 
-    final hasImage = imagePath != null;
+    final hasImage = imagePath != null && imagePath!.isNotEmpty;
 
     return Container(
       width: size,
@@ -51,8 +52,8 @@ class GradientAlbumArt extends StatelessWidget {
       child: hasImage
           ? ClipRRect(
               borderRadius: BorderRadius.circular(borderRadius),
-              child: Image.asset(
-                imagePath!,
+              child: Image(
+                image: AudioPlayerService.getImageProvider(imagePath),
                 width: size,
                 height: size,
                 fit: BoxFit.cover,

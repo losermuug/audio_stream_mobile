@@ -5,6 +5,10 @@ import 'package:streaming_app/shared/widgets/custom_text_field.dart';
 import 'package:streaming_app/features/auth/presentation/widgets/custom_button.dart';
 import 'package:streaming_app/features/auth/presentation/pages/signup_screen.dart';
 import 'package:streaming_app/features/auth/presentation/pages/forgot_password_screen.dart';
+import 'package:streaming_app/features/auth/data/datasources/auth_remote_data_source.dart';
+import 'package:streaming_app/features/auth/data/repositories/auth_repository_impl.dart';
+import 'package:streaming_app/features/auth/domain/repositories/auth_repository.dart';
+import 'package:streaming_app/shared/services/api_client.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -21,6 +25,8 @@ class _LoginScreenState extends State<LoginScreen>
   bool _isLoading = false;
   bool _rememberMe = false;
 
+  late final AuthRepository _authRepository;
+
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late Animation<double> _fadeAnimation;
@@ -29,6 +35,11 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void initState() {
     super.initState();
+    _authRepository = AuthRepositoryImpl(
+      remoteDataSource: AuthRemoteDataSource(
+        apiClient: ApiClient(),
+      ),
+    );
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -63,16 +74,40 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  void _onLogin() {
+  void _onLogin() async {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() => _isLoading = true);
-      // Simulate login logic, then navigate to Home
-      Future.delayed(const Duration(seconds: 1), () {
+      try {
+        await _authRepository.login(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
         if (mounted) {
           setState(() => _isLoading = false);
           Navigator.of(context).pushReplacementNamed('/home');
         }
-      });
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          String errorMsg = e.toString().replaceAll('Exception: ', '');
+          if (errorMsg.contains('Invalid email or password') || errorMsg.contains('Unexpected error')) {
+            errorMsg = 'Имэйл эсвэл нууц үг буруу байна.';
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                errorMsg,
+                style: const TextStyle(color: AppColors.white),
+              ),
+              backgroundColor: AppColors.error,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        }
+      }
     }
   }
 

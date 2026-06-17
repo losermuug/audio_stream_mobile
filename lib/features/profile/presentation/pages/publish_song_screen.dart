@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
 import 'package:streaming_app/features/home/domain/track.dart';
@@ -7,6 +6,10 @@ import 'package:streaming_app/features/profile/presentation/widgets/publish_sele
 import 'package:streaming_app/features/profile/presentation/widgets/mock_upload_card.dart';
 import 'package:streaming_app/features/profile/presentation/widgets/publishing_progress_view.dart';
 import 'package:streaming_app/features/profile/presentation/widgets/publish_success_view.dart';
+import 'package:streaming_app/features/profile/data/datasources/profile_remote_data_source.dart';
+import 'package:streaming_app/features/profile/data/repositories/profile_repository_impl.dart';
+import 'package:streaming_app/features/profile/domain/repositories/profile_repository.dart';
+import 'package:streaming_app/shared/services/api_client.dart';
 
 class PublishSongScreen extends StatefulWidget {
   final Function(Track)? onTrackPublished;
@@ -36,15 +39,26 @@ class _PublishSongScreenState extends State<PublishSongScreen> {
   int _currentStep = 0;
   bool _publishSuccess = false;
 
+  late final ProfileRepository _profileRepository;
+
+  @override
+  void initState() {
+    super.initState();
+    _profileRepository = ProfileRepositoryImpl(
+      remoteDataSource: ProfileRemoteDataSource(
+        apiClient: ApiClient(),
+      ),
+    );
+  }
+
   final List<String> _genres = ['Хип Хоп', 'Поп', 'Рок', 'Инди', 'R&B'];
 
   final List<String> _publishSteps = [
-    'UUID үүсгэж байна... (uuid_generate_v4())',
-    'Уран бүтээлчийн artists.id холбож байна... (FK check)',
-    'tracks.audio_url хадгалах сан руу хуулж байна... (S3 upload)',
-    'tracks.cover_url цомгийн зургийг байршуулж байна...',
-    'tracks.is_published = true өөрчлөлтийг хийж байна...',
-    'Өгөгдлийн санд шинэ бичилт амжилттай үүсгэгдлээ!',
+    'Холболтыг бэлдэж байна...',
+    'Уран бүтээлчийн мэдээллийг татаж байна...',
+    'Аудио файлыг сервер рүү илгээж байна...',
+    'Өгөгдлийн санд шинэ бичилт үүсгэж байна...',
+    'Дуу амжилттай цацагдлаа!',
   ];
 
   @override
@@ -54,7 +68,7 @@ class _PublishSongScreenState extends State<PublishSongScreen> {
     super.dispose();
   }
 
-  void _startPublishing() {
+  void _startPublishing() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_hasAudio || !_hasCover) {
       setState(() {
@@ -70,43 +84,47 @@ class _PublishSongScreenState extends State<PublishSongScreen> {
       _publishSuccess = false;
     });
 
-    // Simulate database transaction step-by-step
-    Timer.periodic(const Duration(milliseconds: 700), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
+    try {
+      // Step 1: Initialize connection
+      setState(() {
+        _currentStep = 1;
+      });
+
+      // Step 2: Prepare payload
+      setState(() {
+        _currentStep = 2;
+      });
+
+      final List<int> dummyAudioBytes = List.filled(50000, 0);
+      final filename = 'device_track_${DateTime.now().millisecondsSinceEpoch}.mp3';
+
+      // Step 3: Performing network upload and DB registration
+      setState(() {
+        _currentStep = 3;
+      });
+
+      final newTrack = await _profileRepository.publishTrack(
+        title: _titleController.text.trim(),
+        genre: _selectedGenre,
+        audioBytes: dummyAudioBytes,
+        filename: filename,
+      );
 
       setState(() {
-        if (_currentStep < _publishSteps.length - 1) {
-          _currentStep++;
-        } else {
-          timer.cancel();
-          _publishSuccess = true;
-
-          // Generate new track
-          final newTrack = Track(
-            id: 'tr_${DateTime.now().millisecondsSinceEpoch}',
-            title: _titleController.text.trim(),
-            artist: 'Мөнхзул', // Logged in User/Artist
-            duration: '3:20',
-            gradientColors: const [
-              Color(0xFF1A1A1A),
-              Color(0xFF333333),
-            ],
-            isLiked: false,
-            imagePath: null, // default music note icon
-          );
-
-          // Insert into global MockData so it shows in Home & Search
-          MockData.recentlyPlayed.insert(0, newTrack);
-
-          if (widget.onTrackPublished != null) {
-            widget.onTrackPublished!(newTrack);
-          }
-        }
+        _currentStep = 4;
+        _publishSuccess = true;
+        _isPublishing = false;
       });
-    });
+
+      if (widget.onTrackPublished != null) {
+        widget.onTrackPublished!(newTrack);
+      }
+    } catch (e) {
+      setState(() {
+        _isPublishing = false;
+        _fileError = e.toString().replaceAll('Exception: ', '');
+      });
+    }
   }
 
   @override

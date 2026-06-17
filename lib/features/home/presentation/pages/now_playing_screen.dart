@@ -4,12 +4,21 @@ import 'package:streaming_app/shared/theme/colors.dart';
 import 'package:streaming_app/features/home/domain/track.dart';
 import 'package:streaming_app/features/home/presentation/widgets/custom_slider.dart';
 import 'package:streaming_app/features/home/presentation/widgets/control_button.dart';
+import 'package:streaming_app/shared/services/audio_player_service.dart';
+import 'package:streaming_app/features/library/data/datasources/library_remote_data_source.dart';
+import 'package:streaming_app/features/library/data/repositories/library_repository_impl.dart';
+import 'package:streaming_app/features/library/domain/repositories/library_repository.dart';
+import 'package:streaming_app/shared/services/api_client.dart';
+import 'package:streaming_app/shared/services/auth_session.dart';
+import 'package:streaming_app/features/home/domain/playlist.dart';
 
 
 class NowPlayingScreen extends StatefulWidget {
   final Track track;
   final bool isPlaying;
   final double progress;
+  final Duration position;
+  final Duration duration;
   final VoidCallback onPlayPauseTap;
   final ValueChanged<double> onProgressChanged;
   final VoidCallback onNextTap;
@@ -22,6 +31,8 @@ class NowPlayingScreen extends StatefulWidget {
     required this.track,
     required this.isPlaying,
     required this.progress,
+    required this.position,
+    required this.duration,
     required this.onPlayPauseTap,
     required this.onProgressChanged,
     required this.onNextTap,
@@ -39,11 +50,15 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
   bool _isRepeatActive = false;
   bool _isLiked = false;
   double _volume = 0.7;
+  final _audioService = AudioPlayerService();
 
   @override
   void initState() {
     super.initState();
     _isLiked = widget.track.isLiked;
+    _volume = _audioService.player.volume;
+    _isShuffleActive = _audioService.isShuffleActive;
+    _isRepeatActive = _audioService.isRepeatActive;
   }
 
   @override
@@ -76,8 +91,10 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final totalDuration = _parseDuration(widget.track.duration);
-    final currentDuration = totalDuration * widget.progress;
+    final totalDuration = widget.duration != Duration.zero
+        ? widget.duration
+        : _parseDuration(widget.track.duration);
+    final currentDuration = widget.position;
     final remainingDuration = totalDuration - currentDuration;
 
     final primaryGlowColor = widget.track.gradientColors.isNotEmpty
@@ -93,9 +110,12 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
           // ── Blurred background image / gradient ──
           Positioned.fill(
             child: hasImage
-                ? Image.asset(
-                    widget.track.imagePath!,
+                ? Image(
+                    image: AudioPlayerService.getImageProvider(widget.track.imagePath),
                     fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: Colors.black,
+                    ),
                   )
                 : Container(
                     decoration: BoxDecoration(
@@ -156,15 +176,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                             color: AppColors.iconDefault,
                             size: 24,
                           ),
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Нэмэлт сонголтууд — удахгүй...'),
-                                backgroundColor: AppColors.grey900,
-                                duration: Duration(milliseconds: 800),
-                              ),
-                            );
-                          },
+                          onPressed: () => _showMoreOptionsBottomSheet(context),
                         ),
                       ],
                     ),
@@ -194,11 +206,27 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(28),
                           child: hasImage
-                              ? Image.asset(
-                                  widget.track.imagePath!,
+                              ? Image(
+                                  image: AudioPlayerService.getImageProvider(widget.track.imagePath),
                                   fit: BoxFit.cover,
                                   width: 280,
                                   height: 280,
+                                  errorBuilder: (context, error, stackTrace) => Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: widget.track.gradientColors,
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                    ),
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.music_note_rounded,
+                                        color: AppColors.white,
+                                        size: 48,
+                                      ),
+                                    ),
+                                  ),
                                 )
                               : Container(
                                   decoration: BoxDecoration(
@@ -325,10 +353,11 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                         icon: Icons.shuffle_rounded,
                         size: 22,
                         isActive: _isShuffleActive,
-                        inactiveColor: AppColors.iconMuted.withValues(alpha: 0.6),
+                        inactiveColor: Colors.white.withValues(alpha: 0.35),
                         onTap: () {
                           setState(() {
                             _isShuffleActive = !_isShuffleActive;
+                            _audioService.setShuffleMode(_isShuffleActive);
                           });
                         },
                       ),
@@ -382,10 +411,11 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                         icon: Icons.repeat_rounded,
                         size: 22,
                         isActive: _isRepeatActive,
-                        inactiveColor: AppColors.iconMuted.withValues(alpha: 0.6),
+                        inactiveColor: Colors.white.withValues(alpha: 0.35),
                         onTap: () {
                           setState(() {
                             _isRepeatActive = !_isRepeatActive;
+                            _audioService.setRepeatMode(_isRepeatActive);
                           });
                         },
                       ),
@@ -401,7 +431,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                       children: [
                         Icon(
                           Icons.volume_mute_rounded,
-                          color: AppColors.iconMuted.withValues(alpha: 0.6),
+                          color: Colors.white.withValues(alpha: 0.35),
                           size: 20,
                         ),
                         Expanded(
@@ -411,6 +441,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                               setState(() {
                                 _volume = val;
                               });
+                              AudioPlayerService().setVolume(val);
                             },
                             trackHeight: 3,
                             thumbRadius: 4,
@@ -421,7 +452,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                         ),
                         Icon(
                           Icons.volume_up_rounded,
-                          color: AppColors.iconMuted.withValues(alpha: 0.6),
+                          color: Colors.white.withValues(alpha: 0.35),
                           size: 20,
                         ),
                       ],
@@ -433,6 +464,204 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showMoreOptionsBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+      builder: (context) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.blackElevated.withValues(alpha: 0.8),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              border: Border.all(
+                color: AppColors.borderSubtle.withValues(alpha: 0.3),
+              ),
+            ),
+            child: SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.grey700,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ListTile(
+                    leading: const Icon(Icons.playlist_add_rounded, color: AppColors.white),
+                    title: const Text(
+                      'Тоглуулах жагсаалтад нэмэх',
+                      style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w500),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _showAddToPlaylistBottomSheet(context);
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.close_rounded, color: AppColors.textSecondary),
+                    title: const Text(
+                      'Хаах',
+                      style: TextStyle(color: AppColors.textSecondary),
+                    ),
+                    onTap: () => Navigator.pop(context),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showAddToPlaylistBottomSheet(BuildContext context) {
+    if (!AuthSession().isAuthenticated) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Энэ үйлдлийг хийхийн тулд нэвтрэх шаардлагатай.',
+            style: TextStyle(color: AppColors.white),
+          ),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    final LibraryRepository libraryRepository = LibraryRepositoryImpl(
+      remoteDataSource: LibraryRemoteDataSource(
+        client: ApiClient(),
+      ),
+    );
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+      builder: (context) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.45,
+            decoration: BoxDecoration(
+              color: AppColors.blackElevated.withValues(alpha: 0.8),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              border: Border.all(
+                color: AppColors.borderSubtle.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 8),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.grey700,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Жагсаалтад нэмэх',
+                  style: TextStyle(
+                    color: AppColors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: FutureBuilder<List<Playlist>>(
+                    future: libraryRepository.getMyPlaylists(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child: CircularProgressIndicator(color: AppColors.white),
+                        );
+                      }
+                      if (snapshot.hasError) {
+                        return Center(
+                          child: Text(
+                            'Алдаа: ${snapshot.error}',
+                            style: const TextStyle(color: AppColors.error),
+                          ),
+                        );
+                      }
+                      final playlists = snapshot.data ?? [];
+                      if (playlists.isEmpty) {
+                        return const Center(
+                          child: Text(
+                            'Жагсаалт одоогоор алга.',
+                            style: TextStyle(color: AppColors.textTertiary),
+                          ),
+                        );
+                      }
+                      return ListView.builder(
+                        itemCount: playlists.length,
+                        itemBuilder: (context, index) {
+                          final playlist = playlists[index];
+                          return ListTile(
+                            leading: const Icon(Icons.playlist_play_rounded, color: AppColors.white),
+                            title: Text(
+                              playlist.name,
+                              style: const TextStyle(color: AppColors.white),
+                            ),
+                            subtitle: Text(
+                              '${playlist.tracks.length} дуу',
+                              style: const TextStyle(color: AppColors.textTertiary),
+                            ),
+                            onTap: () async {
+                              try {
+                                await libraryRepository.addTrackToPlaylist(
+                                  playlistId: playlist.id,
+                                  trackId: widget.track.id,
+                                );
+                                if (context.mounted) {
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('"${widget.track.title}" дууг "${playlist.name}" жагсаалтад нэмлээ!'),
+                                      backgroundColor: AppColors.white,
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Нэмэхэд алдаа гарлаа: $e'),
+                                      backgroundColor: AppColors.error,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

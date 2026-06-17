@@ -24,19 +24,42 @@ class ControlButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color buttonColor = color ?? (isActive ? activeColor : inactiveColor);
+    final double widgetSize = size + 14;
 
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        width: size + 10,
-        height: size + 10,
-        child: Center(
-          child: Icon(
-            icon,
-            color: buttonColor,
-            size: size,
-          ),
+        width: widgetSize,
+        height: widgetSize,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Icon(
+              icon,
+              color: buttonColor,
+              size: size,
+            ),
+            if (isActive)
+              Positioned(
+                bottom: 0,
+                child: Container(
+                  width: 4,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: activeColor,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: activeColor.withValues(alpha: 0.6),
+                        blurRadius: 4,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );

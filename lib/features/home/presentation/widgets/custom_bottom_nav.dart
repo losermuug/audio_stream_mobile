@@ -75,25 +75,35 @@ class _CustomBottomNavState extends State<CustomBottomNav>
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28),
             boxShadow: [
+              // Premium deep ambient shadow to separate from page lists
               BoxShadow(
-                color: AppColors.black.withValues(alpha: 0.55),
-                blurRadius: 24,
+                color: Colors.black.withValues(alpha: 0.65),
+                blurRadius: 32,
                 spreadRadius: 2,
-                offset: const Offset(0, 4),
+                offset: const Offset(0, 10),
+              ),
+              // Subtle top light rim highlight for a premium 3D look
+              BoxShadow(
+                color: Colors.white.withValues(alpha: 0.04),
+                blurRadius: 8,
+                spreadRadius: 0,
+                offset: const Offset(0, -1),
               ),
             ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(28),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppColors.navBarBackground.withValues(alpha: 0.8),
+                  // Slightly more solid color to block text behind it
+                  color: AppColors.navBarBackground.withValues(alpha: 0.90),
                   borderRadius: BorderRadius.circular(28),
+                  // Sleek, semi-transparent white border to clearly define shape
                   border: Border.all(
-                    color: AppColors.borderSubtle.withValues(alpha: 0.8),
-                    width: 0.8,
+                    color: Colors.white.withValues(alpha: 0.12),
+                    width: 1.0,
                   ),
                 ),
                 child: Stack(
@@ -110,6 +120,14 @@ class _CustomBottomNavState extends State<CustomBottomNav>
                         decoration: BoxDecoration(
                           color: AppColors.white,
                           borderRadius: BorderRadius.circular(19),
+                          // Subtle shadow on active indicator to make it feel elevated
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.15),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -203,8 +221,8 @@ class _NavItem extends StatelessWidget {
           ),
           child: TweenAnimationBuilder<Color?>(
             tween: ColorTween(
-              begin: isSelected ? AppColors.iconMuted : AppColors.black,
-              end: isSelected ? AppColors.black : AppColors.iconMuted,
+              begin: isSelected ? Colors.white.withValues(alpha: 0.45) : AppColors.black,
+              end: isSelected ? AppColors.black : Colors.white.withValues(alpha: 0.45),
             ),
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeOut,

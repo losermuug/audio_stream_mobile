@@ -1,8 +1,14 @@
-
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
 import 'package:streaming_app/features/home/domain/track.dart';
+import 'package:streaming_app/features/home/domain/playlist.dart';
+import 'package:streaming_app/features/home/data/datasources/home_remote_data_source.dart';
+import 'package:streaming_app/features/home/data/repositories/home_repository_impl.dart';
+import 'package:streaming_app/features/home/domain/repositories/home_repository.dart';
+import 'package:streaming_app/shared/services/api_client.dart';
+import 'package:streaming_app/shared/services/auth_session.dart';
 import 'package:streaming_app/features/home/presentation/widgets/hero_banner.dart';
 import 'package:streaming_app/features/home/presentation/widgets/track_tile.dart';
 import 'package:streaming_app/features/home/presentation/widgets/mini_player.dart';
@@ -13,6 +19,9 @@ import 'package:streaming_app/shared/widgets/gradient_album_art.dart';
 import 'package:streaming_app/features/search/presentation/pages/search_screen.dart';
 import 'package:streaming_app/features/home/presentation/pages/now_playing_screen.dart';
 import 'package:streaming_app/features/profile/presentation/pages/profile_screen.dart';
+import 'package:streaming_app/features/library/presentation/pages/library_screen.dart';
+import 'package:streaming_app/shared/services/audio_player_service.dart';
+import 'package:just_audio/just_audio.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,31 +35,52 @@ class _HomeScreenState extends State<HomeScreen>
 
   int _currentTabIndex = 0;
 
-  // Global playback state managed directly inside HomeScreen
-  Track _currentTrack = MockData.featuredHero;
+  // Global playback state managed by AudioPlayerService
+  Track _currentTrack = const Track(
+    id: '',
+    title: 'Сонсох дуу сонгоно уу',
+    artist: '',
+    duration: '0:00',
+    gradientColors: [Color(0xFF1E1E1E), Color(0xFF3A3A3A)],
+  );
   bool _isPlaying = false;
-  double _progress = 0.35;
+  double _progress = 0.0;
 
-  Timer? _progressTimer;
+  final AudioPlayerService _audioService = AudioPlayerService();
+  StreamSubscription? _positionSubscription;
+  StreamSubscription? _durationSubscription;
+  StreamSubscription? _playingSubscription;
+
+  Duration _position = Duration.zero;
+  Duration _duration = Duration.zero;
+
   StateSetter? _nowPlayingStateSetter;
   bool _isNowPlayingOpen = false;
 
-  final List<Track> _playlist = [
-    MockData.featuredHero,
-    ...MockData.recentlyPlayed,
-    ...MockData.recommended,
-  ];
+  final List<Track> _playlist = [];
+  List<Track> _tracks = [];
+  List<Playlist> _playlists = [];
+  Track? _heroTrack;
+  bool _isLoading = true;
+
+  late final HomeRepository _homeRepository;
 
   // ── Staggered section entrance animations ──
   late final AnimationController _staggerController;
   late final List<Animation<double>> _sectionFades;
   late final List<Animation<Offset>> _sectionSlides;
 
-  static const int _sectionCount = 5; // header, hero, chips, recent, reco, playlists → grouped
+  static const int _sectionCount = 5;
 
   @override
   void initState() {
     super.initState();
+
+    _homeRepository = HomeRepositoryImpl(
+      remoteDataSource: HomeRemoteDataSource(
+        client: ApiClient(),
+      ),
+    );
 
     _staggerController = AnimationController(
       vsync: this,
@@ -83,13 +113,92 @@ class _HomeScreenState extends State<HomeScreen>
     });
 
     _staggerController.forward();
-    _startProgressTimer();
+    _initAudioListeners();
+    _loadBackendFeed();
+  }
+
+  Future<void> _loadBackendFeed() async {
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      final tracks = await _homeRepository.getTracks();
+      final playlists = await _homeRepository.getPlaylists();
+      setState(() {
+        _tracks = tracks;
+        _playlists = playlists;
+        
+        _playlist.clear();
+        _playlist.addAll(tracks);
+
+        if (tracks.isNotEmpty) {
+          _heroTrack = tracks.first;
+          _currentTrack = tracks.first;
+        }
+      });
+    } catch (e) {
+      debugPrint('Failed to load database feed: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _initAudioListeners() {
+    _positionSubscription = _audioService.positionStream.listen((pos) {
+      if (mounted) {
+        setState(() {
+          _position = pos;
+          _updateProgress();
+        });
+        _nowPlayingStateSetter?.call(() {});
+      }
+    });
+
+    _durationSubscription = _audioService.durationStream.listen((dur) {
+      if (mounted) {
+        setState(() {
+          _duration = dur ?? Duration.zero;
+          _updateProgress();
+        });
+        _nowPlayingStateSetter?.call(() {});
+      }
+    });
+
+    _playingSubscription = _audioService.isPlayingStream.listen((playing) {
+      if (mounted) {
+        setState(() {
+          _isPlaying = playing;
+        });
+        _nowPlayingStateSetter?.call(() {});
+      }
+    });
+
+    // Auto-advance track on completion listener
+    _audioService.player.processingStateStream.listen((state) {
+      if (state == ProcessingState.completed) {
+        _playNextTrack();
+      }
+    });
+  }
+
+  void _updateProgress() {
+    if (_duration.inMilliseconds > 0) {
+      _progress = (_position.inMilliseconds / _duration.inMilliseconds).clamp(0.0, 1.0);
+    } else {
+      _progress = 0.0;
+    }
   }
 
   @override
   void dispose() {
     _staggerController.dispose();
-    _progressTimer?.cancel();
+    _positionSubscription?.cancel();
+    _durationSubscription?.cancel();
+    _playingSubscription?.cancel();
     super.dispose();
   }
 
@@ -104,68 +213,67 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  Duration _parseDuration(String durationStr) {
-    final parts = durationStr.split(':');
-    if (parts.length == 2) {
-      final mins = int.tryParse(parts[0]) ?? 0;
-      final secs = int.tryParse(parts[1]) ?? 0;
-      return Duration(minutes: mins, seconds: secs);
-    }
-    return const Duration(minutes: 3, seconds: 30);
-  }
-
-  void _startProgressTimer() {
-    _progressTimer?.cancel();
-    _progressTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_isPlaying) {
-        setState(() {
-          final totalSecs = _parseDuration(_currentTrack.duration).inSeconds;
-          if (totalSecs > 0) {
-            _progress = (_progress + 1 / totalSecs).clamp(0.0, 1.0);
-            if (_progress >= 1.0) {
-              _progress = 0.0;
-              _playNextTrack();
-            }
-          }
-        });
-        _nowPlayingStateSetter?.call(() {});
-      }
-    });
-  }
-
   void _playNextTrack() {
-    final currentIndex = _playlist.indexWhere((t) => t.id == _currentTrack.id);
-    if (currentIndex != -1 && currentIndex < _playlist.length - 1) {
-      _onTrackSelected(_playlist[currentIndex + 1]);
+    if (_playlist.isEmpty) return;
+    if (_audioService.isShuffleActive) {
+      final randomIndex = Random().nextInt(_playlist.length);
+      _onTrackSelected(_playlist[randomIndex]);
     } else {
-      _onTrackSelected(_playlist.first);
+      final currentIndex = _playlist.indexWhere((t) => t.id == _currentTrack.id);
+      if (currentIndex != -1 && currentIndex < _playlist.length - 1) {
+        _onTrackSelected(_playlist[currentIndex + 1]);
+      } else {
+        _onTrackSelected(_playlist.first);
+      }
     }
   }
 
   void _playPreviousTrack() {
-    final currentIndex = _playlist.indexWhere((t) => t.id == _currentTrack.id);
-    if (currentIndex != -1 && currentIndex > 0) {
-      _onTrackSelected(_playlist[currentIndex - 1]);
+    if (_playlist.isEmpty) return;
+    if (_audioService.isShuffleActive) {
+      final randomIndex = Random().nextInt(_playlist.length);
+      _onTrackSelected(_playlist[randomIndex]);
     } else {
-      _onTrackSelected(_playlist.last);
+      final currentIndex = _playlist.indexWhere((t) => t.id == _currentTrack.id);
+      if (currentIndex != -1 && currentIndex > 0) {
+        _onTrackSelected(_playlist[currentIndex - 1]);
+      } else {
+        _onTrackSelected(_playlist.last);
+      }
     }
   }
 
   void _onTrackSelected(Track track) {
     setState(() {
       _currentTrack = track;
-      _isPlaying = true;
+      _position = Duration.zero;
+      _duration = Duration.zero;
       _progress = 0.0;
     });
+    
+    // Play track via just_audio streaming
+    _audioService.playTrack(track.id).catchError((e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error playing track: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    });
+
     _nowPlayingStateSetter?.call(() {});
     _showNowPlaying(track);
   }
 
   void _togglePlayback() {
-    setState(() {
-      _isPlaying = !_isPlaying;
-    });
-    _nowPlayingStateSetter?.call(() {});
+    if (_playlist.isEmpty) return;
+    if (_audioService.isPlaying) {
+      _audioService.pause();
+    } else {
+      _audioService.play();
+    }
   }
 
   void _showNowPlaying(Track track) {
@@ -191,15 +299,18 @@ class _HomeScreenState extends State<HomeScreen>
               track: _currentTrack,
               isPlaying: _isPlaying,
               progress: _progress,
+              position: _position,
+              duration: _duration,
               statusBarHeight: statusBarHeight,
               onPlayPauseTap: () {
                 _togglePlayback();
                 setSheetState(() {});
               },
               onProgressChanged: (val) {
-                setState(() {
-                  _progress = val;
-                });
+                if (_duration.inMilliseconds > 0) {
+                  final targetMs = (val * _duration.inMilliseconds).round();
+                  _audioService.seek(Duration(milliseconds: targetMs));
+                }
                 setSheetState(() {});
               },
               onNextTap: () {
@@ -211,7 +322,7 @@ class _HomeScreenState extends State<HomeScreen>
                 setSheetState(() {});
               },
               onLikeTap: () {
-                // Toggle like status or update state
+                _toggleLikeTrack(_currentTrack);
               },
             );
           },
@@ -221,6 +332,102 @@ class _HomeScreenState extends State<HomeScreen>
       _isNowPlayingOpen = false;
       _nowPlayingStateSetter = null;
     });
+  }
+
+  void _updateTrackInState(Track updatedTrack) {
+    if (!mounted) return;
+    setState(() {
+      if (_currentTrack.id == updatedTrack.id) {
+        _currentTrack = updatedTrack;
+      }
+      if (_heroTrack?.id == updatedTrack.id) {
+        _heroTrack = updatedTrack;
+      }
+      
+      // Update in tracks list
+      for (int i = 0; i < _tracks.length; i++) {
+        if (_tracks[i].id == updatedTrack.id) {
+          _tracks[i] = updatedTrack;
+        }
+      }
+      
+      // Update in playlist list
+      for (int i = 0; i < _playlist.length; i++) {
+        if (_playlist[i].id == updatedTrack.id) {
+          _playlist[i] = updatedTrack;
+        }
+      }
+
+      // Also update inside playlists list if needed
+      for (var playlist in _playlists) {
+        for (int i = 0; i < playlist.tracks.length; i++) {
+          if (playlist.tracks[i].id == updatedTrack.id) {
+            playlist.tracks[i] = updatedTrack;
+          }
+        }
+      }
+    });
+
+    // Refresh the bottom sheet UI
+    _nowPlayingStateSetter?.call(() {});
+  }
+
+  Future<void> _toggleLikeTrack(Track track) async {
+    if (!AuthSession().isAuthenticated) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Дууг таалагдсан болгохын тулд нэвтрэх шаардлагатай.',
+              style: TextStyle(color: AppColors.white),
+            ),
+            backgroundColor: AppColors.grey900,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    final bool nextLiked = !track.isLiked;
+    final updatedTrack = track.copyWith(isLiked: nextLiked);
+    
+    // Apply optimistic update
+    _updateTrackInState(updatedTrack);
+
+    try {
+      bool success;
+      if (nextLiked) {
+        success = await _homeRepository.likeTrack(track.id);
+      } else {
+        success = await _homeRepository.unlikeTrack(track.id);
+      }
+
+      if (!success) {
+        throw Exception('Server returned false');
+      }
+    } catch (e) {
+      // Revert on error
+      debugPrint('Failed to sync like status: $e');
+      _updateTrackInState(track);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              nextLiked
+                  ? 'Дууг таалагдсан болгоход алдаа гарлаа: $e'
+                  : 'Дууг таалагдсанаас хасахад алдаа гарлаа: $e',
+              style: const TextStyle(color: AppColors.white),
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   // ─────────────────────────────────────────────
@@ -237,43 +444,16 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildEmptyTab(String title, IconData icon, Key key) {
-    return Center(
-      key: key,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            color: AppColors.iconMuted.withValues(alpha: 0.3),
-            size: 64,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: TextStyle(
-              color: AppColors.textTertiary.withValues(alpha: 0.6),
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Одоогоор хоосон байна',
-            style: TextStyle(
-              color: AppColors.textTertiary.withValues(alpha: 0.4),
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 120), // Compensate for bottom floating player/navbar height
-        ],
-      ),
-    );
-  }
-
   Widget _buildBody() {
     switch (_currentTabIndex) {
       case 0:
+        if (_isLoading) {
+          return const Center(
+            child: CircularProgressIndicator(
+              color: AppColors.white,
+            ),
+          );
+        }
         return CustomScrollView(
           key: const ValueKey('home_feed'),
           physics: const BouncingScrollPhysics(),
@@ -281,34 +461,52 @@ class _HomeScreenState extends State<HomeScreen>
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.only(
-                    left: 24, right: 24, bottom: 160),
+                    left: 20, right: 20, bottom: 160),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     _staggered(0, _buildHeader()),
-                    const SizedBox(height: 28),
-                    _staggered(
-                      1,
-                      HeroBanner(
-                        title: MockData.featuredHero.title,
-                        subtitle: MockData.featuredHero.artist,
-                        followersText: '4.2M Дагагчтай сонсож байна',
-                        badgeText: 'онцлох дуу',
-                        gradientColors:
-                            MockData.featuredHero.gradientColors,
-                        imagePath: MockData.featuredHero.imagePath,
-                        onPlayTap: () =>
-                            _onTrackSelected(MockData.featuredHero),
+                    const SizedBox(height: 20),
+                    if (_heroTrack != null)
+                      _staggered(
+                        1,
+                        HeroBanner(
+                          title: _heroTrack!.title,
+                          subtitle: _heroTrack!.artist,
+                          followersText: '4.2M Дагагчтай сонсож байна',
+                          badgeText: 'онцлох дуу',
+                          gradientColors: _heroTrack!.gradientColors,
+                          imagePath: _heroTrack!.imagePath,
+                          onPlayTap: () =>
+                              _onTrackSelected(_heroTrack!),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 28),
-                    _staggered(3, _buildRecentlyPlayed()),
-                    const SizedBox(height: 32),
-                    _staggered(4, _buildRecommendations()),
-                    const SizedBox(height: 32),
-                    _staggered(4, _buildFeaturedPlaylists()),
-                    const SizedBox(height: 32),
+                    if (_tracks.isNotEmpty) ...[
+                      const SizedBox(height: 24),
+                      _staggered(2, _buildRecentlyPlayed()),
+                      const SizedBox(height: 24),
+                      _staggered(3, _buildRecommendations()),
+                    ],
+                    if (_playlists.isNotEmpty) ...[
+                      const SizedBox(height: 24),
+                      _staggered(4, _buildFeaturedPlaylists()),
+                    ],
+                    if (_tracks.isEmpty && _playlists.isEmpty) ...[
+                      const SizedBox(height: 60),
+                      Center(
+                        child: Text(
+                          'Өгөгдлийн сан хоосон байна.\nДуу оруулж эхэлнэ үү.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.textTertiary.withValues(alpha: 0.8),
+                            fontSize: 14,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),
@@ -321,18 +519,15 @@ class _HomeScreenState extends State<HomeScreen>
           onTrackSelected: _onTrackSelected,
         );
       case 2:
-        return _buildEmptyTab(
-          'Сан',
-          Icons.library_music_rounded,
-          const ValueKey('library_tab'),
+        return LibraryScreen(
+          key: const ValueKey('library_tab'),
+          onTrackSelected: _onTrackSelected,
         );
       case 3:
         return ProfileScreen(
           key: const ValueKey('profile_tab'),
           onTrackUploaded: (newTrack) {
-            setState(() {
-              _playlist.insert(1, newTrack);
-            });
+            _loadBackendFeed();
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
@@ -393,6 +588,8 @@ class _HomeScreenState extends State<HomeScreen>
                     isPlaying: _isPlaying,
                     progress: _progress,
                     onPlayPauseTap: _togglePlayback,
+                    isLiked: _currentTrack.isLiked,
+                    onLikeTap: () => _toggleLikeTrack(_currentTrack),
                     imagePath: _currentTrack.imagePath,
                     onTap: () => _showNowPlaying(_currentTrack),
                   ),
@@ -430,103 +627,42 @@ class _HomeScreenState extends State<HomeScreen>
               _getGreeting(),
               style: const TextStyle(
                 color: AppColors.textTertiary,
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w400,
-                letterSpacing: 0.5,
+                letterSpacing: 0.3,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             const Text(
               'Мөнхзул',
               style: TextStyle(
                 color: AppColors.textPrimary,
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.5,
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.3,
               ),
             ),
           ],
         ),
-        // Action buttons
-        Row(
-          children: [
-            // Notification bell with dot indicator
-            Stack(
-              children: [
-                IconButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content:
-                            Text('Танд одоогоор мэдэгдэл байхгүй байна.'),
-                        backgroundColor: AppColors.grey900,
-                      ),
-                    );
-                  },
-                  icon: const Icon(
-                    Icons.notifications_outlined,
-                    color: AppColors.iconDefault,
-                    size: 22,
-                  ),
-                ),
-                // Notification badge dot
-                Positioned(
-                  right: 10,
-                  top: 10,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: AppColors.error,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.error.withValues(alpha: 0.5),
-                          blurRadius: 6,
-                          spreadRadius: 1,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+        // Avatar only — minimal
+        GestureDetector(
+          onTap: () {
+            Navigator.of(context)
+                .pushNamedAndRemoveUntil('/', (route) => false);
+          },
+          child: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.grey800,
             ),
-            const SizedBox(width: 4),
-            // Avatar with gradient ring
-            GestureDetector(
-              onTap: () {
-                Navigator.of(context)
-                    .pushNamedAndRemoveUntil('/', (route) => false);
-              },
-              child: Container(
-                width: 42,
-                height: 42,
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.grey500,
-                      AppColors.white.withValues(alpha: 0.3),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Container(
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.grey900,
-                  ),
-                  child: const Icon(
-                    Icons.person_outline_rounded,
-                    color: AppColors.white,
-                    size: 18,
-                  ),
-                ),
-              ),
+            child: const Icon(
+              Icons.person_outline_rounded,
+              color: AppColors.grey400,
+              size: 18,
             ),
-          ],
+          ),
         ),
       ],
     );
@@ -535,12 +671,9 @@ class _HomeScreenState extends State<HomeScreen>
 
   // _buildSectionHeader extracted to SectionHeader widget in shared/widgets/section_header.dart
 
-  // ─────────────────────────────────────────────
-  //  RECENTLY PLAYED — Enhanced grid with glow
-  // ─────────────────────────────────────────────
-
   Widget _buildRecentlyPlayed() {
-    final list = MockData.recentlyPlayed;
+    if (_tracks.isEmpty) return const SizedBox.shrink();
+    final list = _tracks.take(4).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -555,54 +688,39 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
             childAspectRatio: 2.6,
           ),
           itemCount: list.length,
           itemBuilder: (context, index) {
             final track = list[index];
-            final glowColor = track.gradientColors.isNotEmpty
-                ? track.gradientColors.first
-                : AppColors.glow;
 
             return GestureDetector(
               onTap: () => _onTrackSelected(track),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
+              child: Container(
                 decoration: BoxDecoration(
-                  color: AppColors.cardBackground,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: AppColors.borderSubtle.withValues(alpha: 0.6),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: glowColor.withValues(alpha: 0.08),
-                      blurRadius: 12,
-                      spreadRadius: 0,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                  color: AppColors.grey900,
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: Row(
                   children: [
                     // Gradient Cover
                     GradientAlbumArt(
-                      size: 58,
+                      size: 54,
                       borderRadius: 0,
                       gradientColors: track.gradientColors,
-                      iconSize: 22,
+                      iconSize: 20,
                       imagePath: track.imagePath,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -612,18 +730,17 @@ class _HomeScreenState extends State<HomeScreen>
                             track.title,
                             style: const TextStyle(
                               color: AppColors.textPrimary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: -0.1,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 3),
+                          const SizedBox(height: 2),
                           Text(
                             track.artist,
                             style: const TextStyle(
-                              color: AppColors.textSecondary,
+                              color: AppColors.textTertiary,
                               fontSize: 11,
                               fontWeight: FontWeight.w400,
                             ),
@@ -644,12 +761,9 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  // ─────────────────────────────────────────────
-  //  RECOMMENDATIONS — Horizontal cards
-  // ─────────────────────────────────────────────
-
   Widget _buildRecommendations() {
-    final list = MockData.recommended;
+    if (_tracks.isEmpty) return const SizedBox.shrink();
+    final list = _tracks;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -666,7 +780,7 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         const SizedBox(height: 16),
         SizedBox(
-          height: 240, // Increased for new 160px TrackTile cards
+          height: 240,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
@@ -689,12 +803,9 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  // ─────────────────────────────────────────────
-  //  FEATURED PLAYLISTS
-  // ─────────────────────────────────────────────
-
   Widget _buildFeaturedPlaylists() {
-    final list = MockData.featuredPlaylists;
+    if (_playlists.isEmpty) return const SizedBox.shrink();
+    final list = _playlists;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -720,20 +831,27 @@ class _HomeScreenState extends State<HomeScreen>
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: TrackTile(
-                title: playlist.title,
-                subtitle: playlist.artist,
-                duration: playlist.duration,
-                gradientColors: playlist.gradientColors,
+                title: playlist.name,
+                subtitle: playlist.description ?? '${playlist.tracks.length} дуу',
+                duration: '${playlist.tracks.length} дуу',
+                gradientColors: const [Color(0xFF2C3E50), Color(0xFFFD746C)],
                 defaultIcon: Icons.playlist_play_rounded,
-                imagePath: playlist.imagePath,
+                imagePath: playlist.coverUrl,
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content:
-                          Text('${playlist.title} жагсаалтыг сонслоо'),
-                      backgroundColor: AppColors.grey900,
-                    ),
-                  );
+                  if (playlist.tracks.isNotEmpty) {
+                    setState(() {
+                      _playlist.clear();
+                      _playlist.addAll(playlist.tracks);
+                    });
+                    _onTrackSelected(playlist.tracks.first);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${playlist.name} жагсаалт хоосон байна'),
+                        backgroundColor: AppColors.grey900,
+                      ),
+                    );
+                  }
                 },
               ),
             );

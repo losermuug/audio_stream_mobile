@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
 import 'package:streaming_app/shared/widgets/custom_text_field.dart';
 import 'package:streaming_app/features/auth/presentation/widgets/custom_button.dart';
-// import 'package:streaming_app/features/auth/presentation/widgets/social_button.dart';
-// import 'package:streaming_app/features/auth/presentation/widgets/custom_date_picker.dart';
+import 'package:streaming_app/features/auth/data/datasources/auth_remote_data_source.dart';
+import 'package:streaming_app/features/auth/data/repositories/auth_repository_impl.dart';
+import 'package:streaming_app/features/auth/domain/repositories/auth_repository.dart';
+import 'package:streaming_app/shared/services/api_client.dart';
 
 
 class SignupScreen extends StatefulWidget {
@@ -22,7 +24,8 @@ class _SignupScreenState extends State<SignupScreen>
   final _confirmPasswordController = TextEditingController();
   bool _isLoading = false;
   bool _agreeToTerms = false;
-  // DateTime? _selectedDate;
+
+  late final AuthRepository _authRepository;
 
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
@@ -35,6 +38,11 @@ class _SignupScreenState extends State<SignupScreen>
   @override
   void initState() {
     super.initState();
+    _authRepository = AuthRepositoryImpl(
+      remoteDataSource: AuthRemoteDataSource(
+        apiClient: ApiClient(),
+      ),
+    );
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -87,7 +95,7 @@ class _SignupScreenState extends State<SignupScreen>
     super.dispose();
   }
 
-  void _onSignup() {
+  void _onSignup() async {
     if (_formKey.currentState?.validate() ?? false) {
       if (!_agreeToTerms) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -106,13 +114,44 @@ class _SignupScreenState extends State<SignupScreen>
         return;
       }
       setState(() => _isLoading = true);
-      // Simulate signup logic, then navigate to Home
-      Future.delayed(const Duration(seconds: 1), () {
+      try {
+        await _authRepository.register(
+          userName: _nameController.text.trim(),
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
         if (mounted) {
           setState(() => _isLoading = false);
           Navigator.of(context).pushReplacementNamed('/home');
         }
-      });
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          String errorMsg = e.toString().replaceAll('Exception: ', '');
+          if (errorMsg.contains('Password must be at least')) {
+            errorMsg = 'Нууц үг хамгийн багадаа 8 тэмдэгт байх ёстой.';
+          } else if (errorMsg.toLowerCase().contains('unique constraint') || 
+                     errorMsg.toLowerCase().contains('already exists') ||
+                     errorMsg.toLowerCase().contains('fields: (`email`)')) {
+            errorMsg = 'Энэ имэйл хаяг аль хэдийн бүртгэгдсэн байна.';
+          } else if (errorMsg.contains('Unexpected error')) {
+            errorMsg = 'Бүртгэл үүсгэхэд алдаа гарлаа. Мэдээллээ шалгана уу.';
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                errorMsg,
+                style: const TextStyle(color: AppColors.white),
+              ),
+              backgroundColor: AppColors.error,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        }
+      }
     }
   }
 

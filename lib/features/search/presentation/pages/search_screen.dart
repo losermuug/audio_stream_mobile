@@ -1,8 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
 import 'package:streaming_app/features/home/domain/track.dart';
 import 'package:streaming_app/shared/widgets/custom_text_field.dart';
 import 'package:streaming_app/shared/widgets/gradient_album_art.dart';
+import 'package:streaming_app/features/search/data/datasources/search_remote_data_source.dart';
+import 'package:streaming_app/features/search/data/repositories/search_repository_impl.dart';
+import 'package:streaming_app/features/search/domain/repositories/search_repository.dart';
+import 'package:streaming_app/shared/services/api_client.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Search genre categories with color identity
@@ -73,16 +78,6 @@ const List<_Genre> _genres = [
   ),
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  All searchable tracks (pool from MockData)
-// ─────────────────────────────────────────────────────────────────────────────
-
-final List<Track> _allTracks = [
-  MockData.featuredHero,
-  ...MockData.recentlyPlayed,
-  ...MockData.recommended,
-  ...MockData.featuredPlaylists,
-];
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Search Screen
@@ -101,6 +96,8 @@ class _SearchScreenState extends State<SearchScreen>
     with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
+  late final SearchRepository _searchRepository;
+  Timer? _debounceTimer;
 
   String _query = '';
   List<Track> _results = [];
@@ -115,6 +112,11 @@ class _SearchScreenState extends State<SearchScreen>
   @override
   void initState() {
     super.initState();
+    _searchRepository = SearchRepositoryImpl(
+      remoteDataSource: SearchRemoteDataSource(
+        client: ApiClient(),
+      ),
+    );
 
     _entryController = AnimationController(
       vsync: this,
@@ -158,17 +160,31 @@ class _SearchScreenState extends State<SearchScreen>
     setState(() {
       _query = q;
       _isSearching = q.isNotEmpty;
-      if (q.isEmpty) {
-        _results = [];
-      } else {
-        final lower = q.toLowerCase();
-        _results = _allTracks
-            .where((t) =>
-                t.title.toLowerCase().contains(lower) ||
-                t.artist.toLowerCase().contains(lower))
-            .toList();
-      }
     });
+
+    _debounceTimer?.cancel();
+    if (q.isEmpty) {
+      setState(() {
+        _results = [];
+      });
+    } else {
+      _debounceTimer = Timer(const Duration(milliseconds: 350), () {
+        _performSearch(q);
+      });
+    }
+  }
+
+  Future<void> _performSearch(String query) async {
+    try {
+      final results = await _searchRepository.searchTracks(query);
+      if (_query == query && mounted) {
+        setState(() {
+          _results = results;
+        });
+      }
+    } catch (e) {
+      debugPrint('Search error: $e');
+    }
   }
 
   void _clearSearch() {
@@ -178,6 +194,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _entryController.dispose();
     _searchController.dispose();
     _focusNode.dispose();

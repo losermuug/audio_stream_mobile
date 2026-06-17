@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
 import 'package:streaming_app/features/home/presentation/widgets/control_button.dart';
+import 'package:streaming_app/shared/widgets/gradient_album_art.dart';
 
 
 class MiniPlayer extends StatefulWidget {
@@ -13,6 +14,7 @@ class MiniPlayer extends StatefulWidget {
   final double progress;
   final VoidCallback onPlayPauseTap;
   final VoidCallback? onLikeTap;
+  final bool isLiked;
   final String? imagePath;
   final VoidCallback? onTap;
 
@@ -24,6 +26,7 @@ class MiniPlayer extends StatefulWidget {
     required this.isPlaying,
     required this.progress,
     required this.onPlayPauseTap,
+    this.isLiked = false,
     this.onLikeTap,
     this.imagePath,
     this.onTap,
@@ -184,7 +187,12 @@ class _MiniPlayerState extends State<MiniPlayer>
 
                     // ── Like Button ────────────────
                     ControlButton(
-                      icon: Icons.favorite_border_rounded,
+                      icon: widget.isLiked
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      color: widget.isLiked
+                          ? const Color(0xFFFF5252)
+                          : null,
                       size: 20,
                       onTap: widget.onLikeTap ??
                           () {
@@ -215,7 +223,6 @@ class _MiniPlayerState extends State<MiniPlayer>
   //  Album Art — 52×52, rounded, rotates when playing
   // ──────────────────────────────────────────────
   Widget _buildAlbumArt() {
-    final hasImage = widget.imagePath != null;
     return GestureDetector(
       onTap: widget.onPlayPauseTap,
       child: AnimatedContainer(
@@ -225,13 +232,6 @@ class _MiniPlayerState extends State<MiniPlayer>
         height: 52,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          gradient: hasImage
-              ? null
-              : LinearGradient(
-                  colors: widget.gradientColors,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
           boxShadow: [
             if (widget.isPlaying)
               BoxShadow(
@@ -241,41 +241,14 @@ class _MiniPlayerState extends State<MiniPlayer>
               ),
           ],
         ),
-        child: hasImage
-            ? ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  widget.imagePath!,
-                  width: 52,
-                  height: 52,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: widget.gradientColors,
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                      ),
-                      child: Center(
-                        child: Icon(
-                          Icons.music_note_rounded,
-                          color: AppColors.white.withValues(alpha: 0.85),
-                          size: 24,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              )
-            : Center(
-                child: Icon(
-                  Icons.music_note_rounded,
-                  color: AppColors.white.withValues(alpha: 0.85),
-                  size: 24,
-                ),
-              ),
+        child: GradientAlbumArt(
+          size: 52,
+          gradientColors: widget.gradientColors,
+          imagePath: widget.imagePath,
+          iconSize: 24,
+          iconOpacity: 0.85,
+          borderRadius: 12,
+        ),
       ),
     );
   }

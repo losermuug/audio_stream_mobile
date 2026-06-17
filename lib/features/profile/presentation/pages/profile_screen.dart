@@ -5,14 +5,67 @@ import 'package:streaming_app/features/home/domain/track.dart';
 import 'package:streaming_app/features/profile/presentation/pages/publish_song_screen.dart';
 import 'package:streaming_app/features/profile/presentation/widgets/user_identity_card.dart';
 import 'package:streaming_app/features/profile/presentation/widgets/setting_tile.dart';
+import 'package:streaming_app/shared/services/auth_session.dart';
 
-class ProfileScreen extends StatelessWidget {
+// Dynamically fetch stats
+import 'package:streaming_app/features/library/data/repositories/library_repository_impl.dart';
+import 'package:streaming_app/features/library/data/datasources/library_remote_data_source.dart';
+import 'package:streaming_app/shared/services/api_client.dart';
+
+class ProfileScreen extends StatefulWidget {
   final Function(Track)? onTrackUploaded;
 
   const ProfileScreen({
     super.key,
     this.onTrackUploaded,
   });
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  int _likedCount = 0;
+  int _playlistCount = 0;
+  int _listenedCount = 0;
+  bool _isLoadingStats = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    if (!mounted) return;
+    setState(() => _isLoadingStats = true);
+    try {
+      final libraryRepo = LibraryRepositoryImpl(
+        remoteDataSource: LibraryRemoteDataSource(
+          client: ApiClient(),
+        ),
+      );
+      final likedTracks = await libraryRepo.getLikedTracks();
+      final playlists = await libraryRepo.getMyPlaylists();
+
+      if (mounted) {
+        setState(() {
+          _likedCount = likedTracks.length;
+          _playlistCount = playlists.length;
+          // Set listened tracks count based on MockData or default to a corporate benchmark
+          _listenedCount = MockData.recentlyPlayed.length;
+          _isLoadingStats = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Failed to load profile stats: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingStats = false;
+        });
+      }
+    }
+  }
 
   void _showLogoutConfirmation(BuildContext context) {
     showModalBottomSheet(
@@ -52,12 +105,20 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const Icon(
-                    Icons.logout_rounded,
-                    color: AppColors.white,
-                    size: 36,
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: AppColors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(
+                      Icons.logout_rounded,
+                      color: AppColors.white,
+                      size: 26,
+                    ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   const Text(
                     'Системээс гарах уу?',
                     style: TextStyle(
@@ -104,12 +165,15 @@ class ProfileScreen extends StatelessWidget {
                       const SizedBox(width: 16),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () {
+                          onPressed: () async {
                             Navigator.pop(context);
-                            Navigator.of(context).pushNamedAndRemoveUntil(
-                              '/',
-                              (route) => false,
-                            );
+                            await AuthSession().clearSession();
+                            if (context.mounted) {
+                              Navigator.of(context).pushNamedAndRemoveUntil(
+                                '/',
+                                (route) => false,
+                              );
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.white,
@@ -142,62 +206,150 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String sessionName = AuthSession().userName ?? 'Хэрэглэгч';
+    final String? sessionEmail = AuthSession().userEmail;
+    String sessionRole = 'Сонсогч';
+    if (AuthSession().userRole == 'artist') {
+      sessionRole = 'Уран бүтээлч';
+    } else if (AuthSession().userRole == 'admin') {
+      sessionRole = 'Админ';
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: CustomScrollView(
-        key: const ValueKey('profile_scroll'),
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          SliverAppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            pinned: true,
-            centerTitle: false,
-            title: const Text(
-              'Профайл',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                letterSpacing: -0.5,
+      body: RefreshIndicator(
+        onRefresh: _loadStats,
+        color: AppColors.white,
+        backgroundColor: AppColors.cardBackground,
+        child: CustomScrollView(
+          key: const ValueKey('profile_scroll'),
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
+          slivers: [
+            SliverAppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              pinned: true,
+              centerTitle: false,
+              title: const Text(
+                'Профайл',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -0.5,
+                ),
               ),
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.settings_outlined, color: AppColors.white),
-                onPressed: () {},
-              ),
-            ],
-          ),
 
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.only(left: 24, right: 24, bottom: 160),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 16),
-                  // ── User Identity Section ──
-                  const UserIdentityCard(
-                    userName: 'Мөнхзул',
-                    userRole: 'Premium сонсогч',
-                    avatarAsset: 'assets/image/avatar_user.png',
-                  ),
-                  const SizedBox(height: 32),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(left: 20, right: 20, bottom: 160),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 8),
 
-                  // ── Settings List Section ──
-                  _buildSectionTitle('Тохиргоо'),
-                  const SizedBox(height: 16),
-                  _buildSettingsList(context),
-                  const SizedBox(height: 32),
+                    // ── User Identity Section ──
+                    UserIdentityCard(
+                      userName: sessionName,
+                      userRole: sessionRole,
+                      userEmail: sessionEmail,
+                      avatarAsset: 'assets/image/avatar_user.png',
+                      likedCount: _likedCount,
+                      playlistCount: _playlistCount,
+                      listenedCount: _listenedCount,
+                      isLoading: _isLoadingStats,
+                    ),
+                    const SizedBox(height: 36),
 
-                  // ── Logout Button ──
-                  _buildLogoutButton(context),
-                ],
+                    // ── Account Section ──
+                    _buildSectionTitle('БҮРТГЭЛ'),
+                    const SizedBox(height: 12),
+                    _buildSettingsGroup(context, [
+                      SettingTile(
+                        title: 'Хувийн мэдээлэл',
+                        subtitle: sessionEmail ?? 'Хэрэглэгчийн мэдээлэл харах',
+                        icon: Icons.person_outline_rounded,
+                        first: true,
+                        onTap: () {},
+                      ),
+                      SettingTile(
+                        title: 'Уран бүтээл цацах',
+                        subtitle: AuthSession().userRole == 'artist' 
+                            ? 'Шинэ дуу системд оруулах' 
+                            : 'Уран бүтээлч эрхээр цацах',
+                        icon: Icons.album_rounded,
+                        last: true,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PublishSongScreen(
+                                onTrackPublished: (track) {
+                                  widget.onTrackUploaded?.call(track);
+                                  _loadStats();
+                                },
+                              ),
+                            ),
+                          ).then((_) {
+                            _loadStats();
+                          });
+                        },
+                      ),
+                    ]),
+                    const SizedBox(height: 28),
+
+                    // ── Preferences Section ──
+                    _buildSectionTitle('ТОХИРГОО'),
+                    const SizedBox(height: 12),
+                    _buildSettingsGroup(context, [
+                      const SettingTile(
+                        title: 'Дууны чанар',
+                        subtitle: 'Дуу сонсох чанарыг өндөрсгөх',
+                        icon: Icons.graphic_eq_rounded,
+                        trailingText: 'Хамгийн өндөр',
+                        first: true,
+                      ),
+                      const SettingTile(
+                        title: 'Төхөөрөмжүүд',
+                        subtitle: 'Холбогдсон төхөөрөмжүүдийг удирдах',
+                        icon: Icons.devices_rounded,
+                        trailingText: '1 идэвхтэй',
+                      ),
+                      const SettingTile(
+                        title: 'Мэдэгдэл',
+                        subtitle: 'Шинэ уран бүтээл, мэдээллийн мэдэгдэл',
+                        icon: Icons.notifications_none_rounded,
+                        trailingText: 'Асаалттай',
+                        last: true,
+                      ),
+                    ]),
+                    const SizedBox(height: 36),
+
+                    // ── Logout Button ──
+                    _buildLogoutButton(context),
+                    const SizedBox(height: 32),
+
+                    // ── Version Info ──
+                    const Center(
+                      child: Text(
+                        'Хувилбар 1.0.0',
+                        style: TextStyle(
+                          color: AppColors.textTertiary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w400,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -207,118 +359,88 @@ class ProfileScreen extends StatelessWidget {
   // ──────────────────────────────────────────────
 
   Widget _buildSectionTitle(String title) {
-    return Text(
-      title.toUpperCase(),
-      style: const TextStyle(
-        color: AppColors.textTertiary,
-        fontSize: 11,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.8,
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: AppColors.textTertiary,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1.2,
+        ),
       ),
     );
   }
 
-  Widget _buildSettingsList(BuildContext context) {
+  Widget _buildSettingsGroup(BuildContext context, List<Widget> tiles) {
+    final List<Widget> children = [];
+    for (int i = 0; i < tiles.length; i++) {
+      children.add(tiles[i]);
+      if (i < tiles.length - 1) {
+        children.add(_buildDivider());
+      }
+    }
+
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.cardBackground.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(20),
+        color: AppColors.cardBackground.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: AppColors.borderSubtle.withValues(alpha: 0.5),
-          width: 0.8,
+          color: AppColors.borderSubtle.withValues(alpha: 0.25),
+          width: 0.5,
         ),
       ),
-      child: Column(
-        children: [
-          SettingTile(
-            title: 'Хувийн мэдээлэл',
-            icon: Icons.person_outline_rounded,
-            first: true,
-            onTap: () {},
-          ),
-          _buildDivider(),
-          SettingTile(
-            title: 'Уран бүтээл цацах',
-            icon: Icons.album_rounded,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => PublishSongScreen(
-                    onTrackPublished: onTrackUploaded,
-                  ),
-                ),
-              );
-            },
-          ),
-          _buildDivider(),
-          SettingTile(
-            title: 'Дууны чанар',
-            icon: Icons.graphic_eq_rounded,
-            trailingText: 'Хамгийн өндөр',
-            onTap: () {},
-          ),
-          _buildDivider(),
-          SettingTile(
-            title: 'Төхөөрөмжүүд',
-            icon: Icons.devices_rounded,
-            trailingText: '1 идэвхтэй',
-            onTap: () {},
-          ),
-          _buildDivider(),
-          SettingTile(
-            title: 'Мэдэгдэл',
-            icon: Icons.notifications_none_rounded,
-            trailingText: 'Асаалттай',
-            last: true,
-            onTap: () {},
-          ),
-        ],
-      ),
+      child: Column(children: children),
     );
   }
 
   Widget _buildDivider() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      margin: const EdgeInsets.only(left: 56),
       height: 0.5,
-      color: AppColors.divider.withValues(alpha: 0.6),
+      color: AppColors.divider.withValues(alpha: 0.3),
     );
   }
 
   Widget _buildLogoutButton(BuildContext context) {
-    return Center(
-      child: GestureDetector(
-        onTap: () => _showLogoutConfirmation(context),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 18),
-          decoration: BoxDecoration(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: AppColors.borderSubtle,
-              width: 1,
-            ),
-          ),
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.logout_rounded,
-                color: AppColors.white,
-                size: 18,
-              ),
-              SizedBox(width: 8),
-              Text(
-                'Системээс гарах',
-                style: TextStyle(
-                  color: AppColors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.borderSubtle.withValues(alpha: 0.25),
+          width: 0.5,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _showLogoutConfirmation(context),
+          borderRadius: BorderRadius.circular(16),
+          splashColor: const Color(0xFFFF5252).withValues(alpha: 0.08),
+          highlightColor: const Color(0xFFFF5252).withValues(alpha: 0.04),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.logout_rounded,
+                  color: Color(0xFFFF5252),
+                  size: 18,
                 ),
-              ),
-            ],
+                SizedBox(width: 8),
+                Text(
+                  'Системээс гарах',
+                  style: TextStyle(
+                    color: Color(0xFFFF5252),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

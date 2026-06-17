@@ -3,9 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
 import 'package:streaming_app/features/auth/presentation/pages/login_screen.dart';
 import 'package:streaming_app/features/home/presentation/pages/home_screen.dart';
+import 'package:streaming_app/shared/services/auth_session.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final authSession = AuthSession();
+  await authSession.init();
+
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -14,19 +18,24 @@ void main() {
       systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
-  runApp(const StreamingApp());
+  runApp(StreamingApp(isAuthenticated: authSession.isAuthenticated));
 }
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 class StreamingApp extends StatelessWidget {
-  const StreamingApp({super.key});
+  final bool isAuthenticated;
+
+  const StreamingApp({super.key, required this.isAuthenticated});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'Khemnel',
       theme: AppColors.darkTheme,
-      initialRoute: '/',
+      initialRoute: isAuthenticated ? '/home' : '/',
       routes: {
         '/': (context) => const LoginScreen(),
         '/home': (context) => const HomeScreen(),
