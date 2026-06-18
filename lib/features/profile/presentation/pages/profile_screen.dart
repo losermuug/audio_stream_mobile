@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
 import 'package:streaming_app/features/home/domain/track.dart';
 import 'package:streaming_app/features/profile/presentation/pages/publish_song_screen.dart';
+import 'package:streaming_app/features/profile/presentation/pages/edit_profile_screen.dart';
+import 'package:streaming_app/features/profile/presentation/pages/change_password_screen.dart';
 import 'package:streaming_app/features/profile/presentation/widgets/user_identity_card.dart';
 import 'package:streaming_app/features/profile/presentation/widgets/setting_tile.dart';
 import 'package:streaming_app/shared/services/auth_session.dart';
@@ -273,7 +275,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         subtitle: sessionEmail ?? 'Хэрэглэгчийн мэдээлэл харах',
                         icon: Icons.person_outline_rounded,
                         first: true,
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const EditProfileScreen(),
+                            ),
+                          ).then((updated) {
+                            if (updated == true) {
+                              setState(() {}); // refresh session details
+                            }
+                          });
+                        },
+                      ),
+                      SettingTile(
+                        title: 'Нууц үг солих',
+                        subtitle: 'Нэвтрэх нууц үгээ шинэчлэх',
+                        icon: Icons.lock_outline_rounded,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ChangePasswordScreen(),
+                            ),
+                          );
+                        },
                       ),
                       SettingTile(
                         title: 'Уран бүтээл цацах',
@@ -306,17 +332,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 12),
                     _buildSettingsGroup(context, [
                       const SettingTile(
-                        title: 'Дууны чанар',
-                        subtitle: 'Дуу сонсох чанарыг өндөрсгөх',
-                        icon: Icons.graphic_eq_rounded,
-                        trailingText: 'Хамгийн өндөр',
-                        first: true,
-                      ),
-                      const SettingTile(
                         title: 'Төхөөрөмжүүд',
                         subtitle: 'Холбогдсон төхөөрөмжүүдийг удирдах',
                         icon: Icons.devices_rounded,
                         trailingText: '1 идэвхтэй',
+                        first: true,
                       ),
                       const SettingTile(
                         title: 'Мэдэгдэл',

@@ -329,7 +329,14 @@ class _SearchScreenState extends State<SearchScreen>
             delegate: SliverChildBuilderDelegate(
               (context, index) {
                 final genre = _genres[index];
-                return _GenreCard(genre: genre);
+                return _GenreCard(
+                  genre: genre,
+                  onTap: () {
+                    _searchController.text = genre.name;
+                    _debounceTimer?.cancel();
+                    _performSearch(genre.name);
+                  },
+                );
               },
               childCount: _genres.length,
             ),
@@ -435,7 +442,8 @@ class _SearchScreenState extends State<SearchScreen>
 
 class _GenreCard extends StatefulWidget {
   final _Genre genre;
-  const _GenreCard({required this.genre});
+  final VoidCallback? onTap;
+  const _GenreCard({required this.genre, this.onTap});
 
   @override
   State<_GenreCard> createState() => _GenreCardState();
@@ -450,7 +458,7 @@ class _GenreCardState extends State<_GenreCard> {
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) => setState(() => _pressed = false),
       onTapCancel: () => setState(() => _pressed = false),
-      onTap: () {},
+      onTap: widget.onTap,
       child: AnimatedScale(
         scale: _pressed ? 0.95 : 1.0,
         duration: const Duration(milliseconds: 150),

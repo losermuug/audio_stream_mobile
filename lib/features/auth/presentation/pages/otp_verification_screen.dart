@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
 import 'package:streaming_app/features/auth/presentation/widgets/custom_button.dart';
 import 'package:streaming_app/features/auth/presentation/pages/reset_password_screen.dart';
+import 'package:streaming_app/shared/widgets/custom_toast.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String email;
@@ -140,18 +141,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen>
     if (_canResend) {
       _startTimer();
       // TODO: Resend OTP
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text(
-            'Шинэ код илгээгдлээ',
-            style: TextStyle(color: AppColors.white),
-          ),
-          backgroundColor: AppColors.grey900,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
+      CustomToast.show(
+        context,
+        'Шинэ код илгээгдлээ',
       );
     }
   }

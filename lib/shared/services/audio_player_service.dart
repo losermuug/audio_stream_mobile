@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:http/http.dart' as http;
 import 'package:streaming_app/features/home/domain/track.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 
 class AudioPlayerService {
   static final AudioPlayerService _instance = AudioPlayerService._internal();
@@ -73,20 +74,52 @@ class AudioPlayerService {
   Duration get position => _player.position;
   Duration? get duration => _player.duration;
 
-  // Play audio from track ID or stream URL
-  Future<void> playTrack(String trackId) async {
+  // Get full art URL for a track cover path
+  static String getArtUrl(String? path) {
+    if (path == null || path.isEmpty) {
+      return 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17';
+    }
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    } else if (path.startsWith('/')) {
+      return '$baseUrl$path';
+    } else if (path.startsWith('assets/')) {
+      return 'asset:///$path';
+    } else {
+      if (path.contains('/') && !path.startsWith('assets/')) {
+        return '$baseUrl/$path';
+      } else {
+        return 'asset:///assets/image/$path';
+      }
+    }
+  }
+
+  // Play audio from track with native metadata
+  Future<void> playTrack(Track track) async {
     try {
-      final streamUrl = getStreamUrl(trackId);
+      final streamUrl = getStreamUrl(track.id);
+      final artUrl = getArtUrl(track.imagePath);
       debugPrint('Streaming audio from: $streamUrl');
       
-      // Stop current playback and set the new source
+      // Stop current playback and set the new source with background media metadata
       await _player.stop();
-      await _player.setUrl(streamUrl);
+      await _player.setAudioSource(
+        AudioSource.uri(
+          Uri.parse(streamUrl),
+          tag: MediaItem(
+            id: track.id,
+            album: "Khemnel",
+            title: track.title,
+            artist: track.artist,
+            artUri: Uri.parse(artUrl),
+          ),
+        ),
+      );
       
       // Start playing
       _player.play();
     } catch (e) {
-      debugPrint('Error playing track $trackId: $e');
+      debugPrint('Error playing track ${track.id}: $e');
       rethrow;
     }
   }

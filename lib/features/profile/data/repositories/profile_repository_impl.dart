@@ -40,4 +40,26 @@ class ProfileRepositoryImpl implements ProfileRepository {
       imagePath: trackJson['coverUrl'],
     );
   }
+
+  @override
+  Future<void> updateProfile({
+    required String userName,
+    required String email,
+  }) async {
+    await remoteDataSource.updateProfile(
+      userName: userName,
+      email: email,
+    );
+  }
+
+  @override
+  Future<void> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    await remoteDataSource.changePassword(
+      oldPassword: oldPassword,
+      newPassword: newPassword,
+    );
+  }
 }

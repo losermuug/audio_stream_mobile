@@ -6,6 +6,7 @@ import 'package:streaming_app/features/auth/data/datasources/auth_remote_data_so
 import 'package:streaming_app/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:streaming_app/features/auth/domain/repositories/auth_repository.dart';
 import 'package:streaming_app/shared/services/api_client.dart';
+import 'package:streaming_app/shared/widgets/custom_toast.dart';
 
 
 class SignupScreen extends StatefulWidget {
@@ -98,18 +99,10 @@ class _SignupScreenState extends State<SignupScreen>
   void _onSignup() async {
     if (_formKey.currentState?.validate() ?? false) {
       if (!_agreeToTerms) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              'Үйлчилгээний нөхцөлийг зөвшөөрнө үү',
-              style: TextStyle(color: AppColors.white),
-            ),
-            backgroundColor: AppColors.grey900,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
+        CustomToast.show(
+          context,
+          'Үйлчилгээний нөхцөлийг зөвшөөрнө үү',
+          isError: true,
         );
         return;
       }
@@ -137,18 +130,10 @@ class _SignupScreenState extends State<SignupScreen>
           } else if (errorMsg.contains('Unexpected error')) {
             errorMsg = 'Бүртгэл үүсгэхэд алдаа гарлаа. Мэдээллээ шалгана уу.';
           }
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                errorMsg,
-                style: const TextStyle(color: AppColors.white),
-              ),
-              backgroundColor: AppColors.error,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
+          CustomToast.show(
+            context,
+            errorMsg,
+            isError: true,
           );
         }
       }

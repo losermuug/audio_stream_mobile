@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
 import 'package:streaming_app/features/home/domain/track.dart';
@@ -16,12 +15,16 @@ import 'package:streaming_app/features/home/presentation/widgets/custom_bottom_n
 import 'package:streaming_app/features/home/presentation/widgets/section_header.dart';
 
 import 'package:streaming_app/shared/widgets/gradient_album_art.dart';
+import 'package:streaming_app/shared/widgets/custom_toast.dart';
 import 'package:streaming_app/features/search/presentation/pages/search_screen.dart';
 import 'package:streaming_app/features/home/presentation/pages/now_playing_screen.dart';
 import 'package:streaming_app/features/profile/presentation/pages/profile_screen.dart';
 import 'package:streaming_app/features/library/presentation/pages/library_screen.dart';
 import 'package:streaming_app/shared/services/audio_player_service.dart';
-import 'package:just_audio/just_audio.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:streaming_app/shared/bloc/player/player_bloc.dart';
+import 'package:streaming_app/shared/bloc/player/player_event.dart';
+import 'package:streaming_app/shared/bloc/player/player_state.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -48,12 +51,6 @@ class _HomeScreenState extends State<HomeScreen>
   bool _isMiniPlayerDismissed = false;
 
   final AudioPlayerService _audioService = AudioPlayerService();
-  StreamSubscription? _positionSubscription;
-  StreamSubscription? _durationSubscription;
-  StreamSubscription? _playingSubscription;
-
-  Duration _position = Duration.zero;
-  Duration _duration = Duration.zero;
 
   StateSetter? _nowPlayingStateSetter;
   bool _isNowPlayingOpen = false;
@@ -114,7 +111,6 @@ class _HomeScreenState extends State<HomeScreen>
     });
 
     _staggerController.forward();
-    _initAudioListeners();
     _loadBackendFeed();
   }
 
@@ -148,58 +144,9 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  void _initAudioListeners() {
-    _positionSubscription = _audioService.positionStream.listen((pos) {
-      if (mounted) {
-        setState(() {
-          _position = pos;
-          _updateProgress();
-        });
-        _nowPlayingStateSetter?.call(() {});
-      }
-    });
-
-    _durationSubscription = _audioService.durationStream.listen((dur) {
-      if (mounted) {
-        setState(() {
-          _duration = dur ?? Duration.zero;
-          _updateProgress();
-        });
-        _nowPlayingStateSetter?.call(() {});
-      }
-    });
-
-    _playingSubscription = _audioService.isPlayingStream.listen((playing) {
-      if (mounted) {
-        setState(() {
-          _isPlaying = playing;
-        });
-        _nowPlayingStateSetter?.call(() {});
-      }
-    });
-
-    // Auto-advance track on completion listener
-    _audioService.player.processingStateStream.listen((state) {
-      if (state == ProcessingState.completed) {
-        _playNextTrack();
-      }
-    });
-  }
-
-  void _updateProgress() {
-    if (_duration.inMilliseconds > 0) {
-      _progress = (_position.inMilliseconds / _duration.inMilliseconds).clamp(0.0, 1.0);
-    } else {
-      _progress = 0.0;
-    }
-  }
-
   @override
   void dispose() {
     _staggerController.dispose();
-    _positionSubscription?.cancel();
-    _durationSubscription?.cancel();
-    _playingSubscription?.cancel();
     super.dispose();
   }
 
@@ -214,76 +161,27 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  void _playNextTrack() {
-    if (_playlist.isEmpty) return;
-    if (_audioService.isShuffleActive) {
-      final randomIndex = Random().nextInt(_playlist.length);
-      _onTrackSelected(_playlist[randomIndex]);
-    } else {
-      final currentIndex = _playlist.indexWhere((t) => t.id == _currentTrack.id);
-      if (currentIndex != -1 && currentIndex < _playlist.length - 1) {
-        _onTrackSelected(_playlist[currentIndex + 1]);
-      } else {
-        _onTrackSelected(_playlist.first);
-      }
-    }
-  }
-
-  void _playPreviousTrack() {
-    if (_playlist.isEmpty) return;
-    if (_audioService.isShuffleActive) {
-      final randomIndex = Random().nextInt(_playlist.length);
-      _onTrackSelected(_playlist[randomIndex]);
-    } else {
-      final currentIndex = _playlist.indexWhere((t) => t.id == _currentTrack.id);
-      if (currentIndex != -1 && currentIndex > 0) {
-        _onTrackSelected(_playlist[currentIndex - 1]);
-      } else {
-        _onTrackSelected(_playlist.last);
-      }
-    }
-  }
-
   void _onTrackSelected(Track track) {
     setState(() {
       _currentTrack = track;
-      _position = Duration.zero;
-      _duration = Duration.zero;
       _progress = 0.0;
       _isMiniPlayerDismissed = false;
     });
     
-    // Play track via just_audio streaming
-    _audioService.playTrack(track.id).catchError((e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error playing track: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    });
+    // Play track via PlayerBloc to manage queue and current track state
+    final queue = _playlist.isNotEmpty ? _playlist : [track];
+    context.read<PlayerBloc>().add(PlayTrackEvent(track: track, queue: queue));
 
     _nowPlayingStateSetter?.call(() {});
     _showNowPlaying(track);
   }
 
   void _togglePlayback() {
-    if (_playlist.isEmpty) return;
-    if (_audioService.isPlaying) {
-      _audioService.pause();
-    } else {
-      _audioService.play();
-      setState(() {
-        _isMiniPlayerDismissed = false;
-      });
-    }
+    context.read<PlayerBloc>().add(const TogglePlayPauseEvent());
   }
 
   void _showNowPlaying(Track track) {
     if (_isNowPlayingOpen) {
-      _nowPlayingStateSetter?.call(() {});
       return;
     }
 
@@ -297,45 +195,15 @@ class _HomeScreenState extends State<HomeScreen>
       elevation: 0,
       barrierColor: Colors.black.withValues(alpha: 0.5),
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            _nowPlayingStateSetter = setSheetState;
-            return NowPlayingScreen(
-              track: _currentTrack,
-              isPlaying: _isPlaying,
-              progress: _progress,
-              position: _position,
-              duration: _duration,
-              statusBarHeight: statusBarHeight,
-              onPlayPauseTap: () {
-                _togglePlayback();
-                setSheetState(() {});
-              },
-              onProgressChanged: (val) {
-                if (_duration.inMilliseconds > 0) {
-                  final targetMs = (val * _duration.inMilliseconds).round();
-                  _audioService.seek(Duration(milliseconds: targetMs));
-                }
-                setSheetState(() {});
-              },
-              onNextTap: () {
-                _playNextTrack();
-                setSheetState(() {});
-              },
-              onPreviousTap: () {
-                _playPreviousTrack();
-                setSheetState(() {});
-              },
-              onLikeTap: () {
-                _toggleLikeTrack(_currentTrack);
-              },
-            );
+        return NowPlayingScreen(
+          statusBarHeight: statusBarHeight,
+          onLikeTap: (t) {
+            _toggleLikeTrack(t);
           },
         );
       },
     ).then((_) {
       _isNowPlayingOpen = false;
-      _nowPlayingStateSetter = null;
     });
   }
 
@@ -375,23 +243,18 @@ class _HomeScreenState extends State<HomeScreen>
 
     // Refresh the bottom sheet UI
     _nowPlayingStateSetter?.call(() {});
+
+    // Also notify PlayerBloc
+    context.read<PlayerBloc>().add(UpdateTrackEvent(updatedTrack));
   }
 
   Future<void> _toggleLikeTrack(Track track) async {
     if (!AuthSession().isAuthenticated) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              'Дууг таалагдсан болгохын тулд нэвтрэх шаардлагатай.',
-              style: TextStyle(color: AppColors.white),
-            ),
-            backgroundColor: AppColors.grey900,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
+        CustomToast.show(
+          context,
+          'Дууг таалагдсан болгохын тулд нэвтрэх шаардлагатай.',
+          isError: true,
         );
       }
       return;
@@ -420,16 +283,12 @@ class _HomeScreenState extends State<HomeScreen>
       _updateTrackInState(track);
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              nextLiked
-                  ? 'Дууг таалагдсан болгоход алдаа гарлаа: $e'
-                  : 'Дууг таалагдсанаас хасахад алдаа гарлаа: $e',
-              style: const TextStyle(color: AppColors.white),
-            ),
-            backgroundColor: AppColors.error,
-          ),
+        CustomToast.show(
+          context,
+          nextLiked
+              ? 'Дууг таалагдсан болгоход алдаа гарлаа: $e'
+              : 'Дууг таалагдсанаас хасахад алдаа гарлаа: $e',
+          isError: true,
         );
       }
     }
@@ -533,19 +392,9 @@ class _HomeScreenState extends State<HomeScreen>
           key: const ValueKey('profile_tab'),
           onTrackUploaded: (newTrack) {
             _loadBackendFeed();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  '"${newTrack.title}" амжилттай цацагдлаа. Сүүлд сонссон жагсаалтад нэмэгдлээ!',
-                  style: const TextStyle(color: AppColors.white),
-                ),
-                backgroundColor: AppColors.grey900,
-                behavior: SnackBarBehavior.floating,
-                duration: const Duration(seconds: 3),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
+            CustomToast.show(
+              context,
+              '"${newTrack.title}" амжилттай цацагдлаа. Сүүлд сонссон жагсаалтад нэмэгдлээ!',
             );
           },
         );
@@ -561,106 +410,110 @@ class _HomeScreenState extends State<HomeScreen>
     // and 10px on standard bezel devices, keeping it floating but closer to the bottom.
     final double bottomGap = systemBottom > 0 ? (systemBottom - 12) : 10;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        bottom: false,
-        child: Stack(
-          children: [
-            // ── Tab Body with cross-fade animation ──
-            Positioned.fill(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 280),
-                switchInCurve: Curves.easeInOut,
-                switchOutCurve: Curves.easeInOut,
-                child: _buildBody(),
+    return BlocListener<PlayerBloc, PlayerState>(
+      listener: (context, state) {
+        if (state.currentTrack != null && state.currentTrack != _currentTrack) {
+          setState(() {
+            _currentTrack = state.currentTrack!;
+            _isMiniPlayerDismissed = false;
+          });
+        }
+        if (state.isPlaying != _isPlaying) {
+          setState(() {
+            _isPlaying = state.isPlaying;
+          });
+        }
+        if (state.progress != _progress) {
+          setState(() {
+            _progress = state.progress;
+          });
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          bottom: false,
+          child: Stack(
+            children: [
+              // ── Tab Body with cross-fade animation ──
+              Positioned.fill(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 280),
+                  switchInCurve: Curves.easeInOut,
+                  switchOutCurve: Curves.easeInOut,
+                  child: _buildBody(),
+                ),
               ),
-            ),
 
-            // ── Persistent Floating Mini Player + Bottom Nav ──
-            Positioned(
-              left: 12,
-              right: 12,
-              bottom: bottomGap,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Mini Player (floating card)
-                  if (!_isMiniPlayerDismissed && _currentTrack.id.isNotEmpty)
-                    Dismissible(
-                      key: Key('mini_player_${_currentTrack.id}'),
-                      direction: DismissDirection.horizontal,
-                      onDismissed: (direction) {
-                        setState(() {
-                          _isMiniPlayerDismissed = true;
-                        });
-                        _audioService.pause();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text(
-                              'Тоглуулагчийг хаалаа',
-                              style: TextStyle(color: AppColors.white),
-                            ),
-                            backgroundColor: AppColors.grey900,
-                            duration: const Duration(seconds: 2),
-                            action: SnackBarAction(
-                              label: 'Буцаах',
-                              textColor: AppColors.white,
-                              onPressed: () {
-                                setState(() {
-                                  _isMiniPlayerDismissed = false;
-                                });
-                                _audioService.play();
-                              },
-                            ),
+              // ── Persistent Floating Mini Player + Bottom Nav ──
+              Positioned(
+                left: 12,
+                right: 12,
+                bottom: bottomGap,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Mini Player (floating card)
+                    if (!_isMiniPlayerDismissed && _currentTrack.id.isNotEmpty)
+                      Dismissible(
+                        key: Key('mini_player_${_currentTrack.id}'),
+                        direction: DismissDirection.horizontal,
+                        onDismissed: (direction) {
+                          setState(() {
+                            _isMiniPlayerDismissed = true;
+                          });
+                          _audioService.pause();
+                          CustomToast.show(
+                            context,
+                            'Тоглуулагчийг хаалаа',
+                          );
+                        },
+                        background: Container(
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.only(left: 20),
+                          decoration: BoxDecoration(
+                            color: AppColors.error.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(20),
                           ),
-                        );
+                          child: const Icon(Icons.close_rounded, color: AppColors.white),
+                        ),
+                        secondaryBackground: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 20),
+                          decoration: BoxDecoration(
+                            color: AppColors.error.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Icon(Icons.close_rounded, color: AppColors.white),
+                        ),
+                        child: MiniPlayer(
+                          title: _currentTrack.title,
+                          artist: _currentTrack.artist,
+                          gradientColors: _currentTrack.gradientColors,
+                          isPlaying: _isPlaying,
+                          progress: _progress,
+                          onPlayPauseTap: _togglePlayback,
+                          isLiked: _currentTrack.isLiked,
+                          onLikeTap: () => _toggleLikeTrack(_currentTrack),
+                          imagePath: _currentTrack.imagePath,
+                          onTap: () => _showNowPlaying(_currentTrack),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                    // Bottom Navigation (floating pill)
+                    CustomBottomNav(
+                      currentIndex: _currentTabIndex,
+                      onTap: (index) {
+                        setState(() {
+                          _currentTabIndex = index;
+                        });
                       },
-                      background: Container(
-                        alignment: Alignment.centerLeft,
-                        padding: const EdgeInsets.only(left: 20),
-                        decoration: BoxDecoration(
-                          color: AppColors.error.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Icon(Icons.close_rounded, color: AppColors.white),
-                      ),
-                      secondaryBackground: Container(
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 20),
-                        decoration: BoxDecoration(
-                          color: AppColors.error.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Icon(Icons.close_rounded, color: AppColors.white),
-                      ),
-                      child: MiniPlayer(
-                        title: _currentTrack.title,
-                        artist: _currentTrack.artist,
-                        gradientColors: _currentTrack.gradientColors,
-                        isPlaying: _isPlaying,
-                        progress: _progress,
-                        onPlayPauseTap: _togglePlayback,
-                        isLiked: _currentTrack.isLiked,
-                        onLikeTap: () => _toggleLikeTrack(_currentTrack),
-                        imagePath: _currentTrack.imagePath,
-                        onTap: () => _showNowPlaying(_currentTrack),
-                      ),
                     ),
-                  const SizedBox(height: 8),
-                  // Bottom Navigation (floating pill)
-                  CustomBottomNav(
-                    currentIndex: _currentTabIndex,
-                    onTap: (index) {
-                      setState(() {
-                        _currentTabIndex = index;
-                      });
-                    },
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -698,11 +551,13 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           ],
         ),
-        // Avatar only — minimal
+        // Notification button
         GestureDetector(
           onTap: () {
-            Navigator.of(context)
-                .pushNamedAndRemoveUntil('/', (route) => false);
+            CustomToast.show(
+              context,
+              'Шинэ мэдэгдэл байхгүй байна.',
+            );
           },
           child: Container(
             width: 36,
@@ -712,9 +567,9 @@ class _HomeScreenState extends State<HomeScreen>
               color: AppColors.grey800,
             ),
             child: const Icon(
-              Icons.person_outline_rounded,
+              Icons.notifications_none_rounded,
               color: AppColors.grey400,
-              size: 18,
+              size: 20,
             ),
           ),
         ),
@@ -734,12 +589,9 @@ class _HomeScreenState extends State<HomeScreen>
       children: [
         SectionHeader(
           title: 'Сүүлд сонссон',
-          onSeeAllTap: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Сүүлд сонссон — удахгүй...'),
-              backgroundColor: AppColors.grey900,
-              duration: Duration(milliseconds: 800),
-            ),
+          onSeeAllTap: () => CustomToast.show(
+            context,
+            'Сүүлд сонссон — удахгүй...',
           ),
         ),
         const SizedBox(height: 12),
@@ -824,12 +676,9 @@ class _HomeScreenState extends State<HomeScreen>
       children: [
         SectionHeader(
           title: 'Танд зориулсан хэмнэл',
-          onSeeAllTap: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Танд зориулсан хэмнэл — удахгүй...'),
-              backgroundColor: AppColors.grey900,
-              duration: Duration(milliseconds: 800),
-            ),
+          onSeeAllTap: () => CustomToast.show(
+            context,
+            'Танд зориулсан хэмнэл — удахгүй...',
           ),
         ),
         const SizedBox(height: 16),
@@ -866,12 +715,9 @@ class _HomeScreenState extends State<HomeScreen>
       children: [
         SectionHeader(
           title: 'Шилдэг тоглуулах жагсаалт',
-          onSeeAllTap: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Шилдэг тоглуулах жагсаалт — удахгүй...'),
-              backgroundColor: AppColors.grey900,
-              duration: Duration(milliseconds: 800),
-            ),
+          onSeeAllTap: () => CustomToast.show(
+            context,
+            'Шилдэг тоглуулах жагсаалт — удахгүй...',
           ),
         ),
         const SizedBox(height: 16),
@@ -899,11 +745,10 @@ class _HomeScreenState extends State<HomeScreen>
                     });
                     _onTrackSelected(playlist.tracks.first);
                   } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('${playlist.name} жагсаалт хоосон байна'),
-                        backgroundColor: AppColors.grey900,
-                      ),
+                    CustomToast.show(
+                      context,
+                      '${playlist.name} жагсаалт хоосон байна',
+                      isError: true,
                     );
                   }
                 },

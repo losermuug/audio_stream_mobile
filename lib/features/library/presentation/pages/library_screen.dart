@@ -9,6 +9,7 @@ import 'package:streaming_app/features/library/data/repositories/library_reposit
 import 'package:streaming_app/features/library/domain/repositories/library_repository.dart';
 import 'package:streaming_app/shared/services/api_client.dart';
 import 'package:streaming_app/features/library/presentation/pages/playlist_detail_screen.dart';
+import 'package:streaming_app/shared/widgets/custom_toast.dart';
 
 class LibraryScreen extends StatefulWidget {
   final void Function(Track track) onTrackSelected;
@@ -142,12 +143,11 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                           _loadData();
                         } catch (e) {
                           if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Жагсаалт үүсгэхэд алдаа гарлаа: $e'),
-                                backgroundColor: AppColors.error,
-                              ),
-                            );
+                             CustomToast.show(
+                               context,
+                               'Жагсаалт үүсгэхэд алдаа гарлаа: $e',
+                               isError: true,
+                             );
                           }
                         }
                       }

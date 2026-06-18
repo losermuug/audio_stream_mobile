@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
 import 'package:streaming_app/features/home/presentation/widgets/control_button.dart';
 import 'package:streaming_app/shared/widgets/gradient_album_art.dart';
+import 'package:streaming_app/shared/widgets/custom_toast.dart';
 
 
 class MiniPlayer extends StatefulWidget {
@@ -195,18 +196,12 @@ class _MiniPlayerState extends State<MiniPlayer>
                           : null,
                       size: 20,
                       onTap: widget.onLikeTap ??
-                          () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Тоглуулах жагсаалтад нэмэгдлээ',
-                                  style: TextStyle(color: AppColors.white),
-                                ),
-                                backgroundColor: AppColors.grey900,
-                                duration: Duration(seconds: 1),
-                              ),
-                            );
-                          },
+                           () {
+                             CustomToast.show(
+                               context,
+                               'Тоглуулах жагсаалтад нэмэгдлээ',
+                             );
+                           },
                     ),
                   ],
                 ),
@@ -235,7 +230,7 @@ class _MiniPlayerState extends State<MiniPlayer>
           boxShadow: [
             if (widget.isPlaying)
               BoxShadow(
-                color: widget.gradientColors.last.withValues(alpha: 0.45),
+                color: Colors.white.withValues(alpha: 0.3),
                 blurRadius: 14,
                 spreadRadius: 2,
               ),

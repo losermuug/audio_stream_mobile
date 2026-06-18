@@ -9,6 +9,7 @@ import 'package:streaming_app/features/auth/data/datasources/auth_remote_data_so
 import 'package:streaming_app/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:streaming_app/features/auth/domain/repositories/auth_repository.dart';
 import 'package:streaming_app/shared/services/api_client.dart';
+import 'package:streaming_app/shared/widgets/custom_toast.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -93,18 +94,10 @@ class _LoginScreenState extends State<LoginScreen>
           if (errorMsg.contains('Invalid email or password') || errorMsg.contains('Unexpected error')) {
             errorMsg = 'Имэйл эсвэл нууц үг буруу байна.';
           }
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                errorMsg,
-                style: const TextStyle(color: AppColors.white),
-              ),
-              backgroundColor: AppColors.error,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
+          CustomToast.show(
+            context,
+            errorMsg,
+            isError: true,
           );
         }
       }

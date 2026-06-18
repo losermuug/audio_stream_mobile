@@ -62,6 +62,18 @@ class AuthSession {
     await prefs.setString(_keyUserRole, userRole);
   }
 
+  Future<void> updateProfile({
+    required String userName,
+    required String userEmail,
+  }) async {
+    _userName = userName;
+    _userEmail = userEmail;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyUserName, userName);
+    await prefs.setString(_keyUserEmail, userEmail);
+  }
+
   Future<void> clearSession() async {
     _accessToken = null;
     _refreshToken = null;

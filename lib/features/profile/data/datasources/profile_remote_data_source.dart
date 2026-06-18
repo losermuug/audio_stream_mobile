@@ -88,4 +88,76 @@ class ProfileRemoteDataSource {
       throw Exception(errJson['message'] ?? 'Failed to upload track: ${response.statusCode}');
     }
   }
+
+  Future<Map<String, dynamic>> updateProfile({
+    required String userName,
+    required String email,
+  }) async {
+    final url = Uri.parse('${AudioPlayerService.baseUrl}/graphql');
+    final query = {
+      'query': r'''
+        mutation UpdateUser($input: UpdateUserInput!) {
+          updateUser(input: $input) {
+            id
+            userName
+            email
+          }
+        }
+      ''',
+      'variables': {
+        'input': {
+          'userName': userName,
+          'email': email,
+        }
+      }
+    };
+
+    final response = await apiClient.post(
+      url,
+      body: jsonEncode(query),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['errors'] != null) {
+        throw Exception(data['errors'][0]['message']);
+      }
+      return data['data']?['updateUser'] ?? {};
+    } else {
+      throw Exception('Хэрэглэгчийн мэдээллийг шинэчлэхэд алдаа гарлаа: ${response.statusCode}');
+    }
+  }
+
+  Future<bool> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    final url = Uri.parse('${AudioPlayerService.baseUrl}/graphql');
+    final query = {
+      'query': r'''
+        mutation ChangePassword($oldPassword: String!, $newPassword: String!) {
+          changePassword(oldPassword: $oldPassword, newPassword: $newPassword)
+        }
+      ''',
+      'variables': {
+        'oldPassword': oldPassword,
+        'newPassword': newPassword,
+      }
+    };
+
+    final response = await apiClient.post(
+      url,
+      body: jsonEncode(query),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['errors'] != null) {
+        throw Exception(data['errors'][0]['message']);
+      }
+      return data['data']?['changePassword'] ?? false;
+    } else {
+      throw Exception('Нууц үг солиход алдаа гарлаа: ${response.statusCode}');
+    }
+  }
 }
