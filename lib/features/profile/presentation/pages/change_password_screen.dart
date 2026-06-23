@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
+import 'package:streaming_app/shared/theme/typography.dart';
 import 'package:streaming_app/shared/widgets/custom_text_field.dart';
 import 'package:streaming_app/features/profile/data/datasources/profile_remote_data_source.dart';
 import 'package:streaming_app/features/profile/data/repositories/profile_repository_impl.dart';
@@ -91,11 +92,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         ),
         title: const Text(
           'Нууц үг солих',
-          style: TextStyle(
-            color: AppColors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+          style: AppTypography.appBarTitle,
         ),
       ),
       body: SafeArea(

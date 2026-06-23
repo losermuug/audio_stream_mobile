@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
+import 'package:streaming_app/shared/theme/typography.dart';
 import 'package:streaming_app/features/home/domain/track.dart';
 import 'package:streaming_app/features/home/domain/playlist.dart';
 import 'package:streaming_app/features/home/presentation/widgets/track_tile.dart';
@@ -10,6 +11,8 @@ import 'package:streaming_app/features/library/domain/repositories/library_repos
 import 'package:streaming_app/shared/services/api_client.dart';
 import 'package:streaming_app/features/library/presentation/pages/playlist_detail_screen.dart';
 import 'package:streaming_app/shared/widgets/custom_toast.dart';
+import 'package:streaming_app/shared/widgets/image_selector.dart';
+import 'package:streaming_app/shared/services/audio_player_service.dart';
 
 class LibraryScreen extends StatefulWidget {
   final void Function(Track track) onTrackSelected;
@@ -62,6 +65,10 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
   void _showCreatePlaylistDialog() {
     final nameController = TextEditingController();
     final descController = TextEditingController();
+    List<int>? coverBytes;
+    String? coverFilename;
+    bool isPublic = false;
+    bool isUploading = false;
 
     showGeneralDialog(
       context: context,
@@ -72,7 +79,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
       pageBuilder: (context, anim1, anim2) {
         return const SizedBox.shrink();
       },
-      transitionBuilder: (context, anim1, anim2, child) {
+      transitionBuilder: (dialogContext, anim1, anim2, child) {
         final curve = Curves.easeInOutBack.transform(anim1.value);
         return Transform.scale(
           scale: 0.85 + (curve * 0.15),
@@ -80,87 +87,152 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
             opacity: anim1.value,
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: AlertDialog(
-                backgroundColor: AppColors.blackElevated.withValues(alpha: 0.85),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  side: BorderSide(
-                    color: AppColors.borderSubtle.withValues(alpha: 0.8),
-                  ),
-                ),
-                title: const Text(
-                  'Шинэ тоглуулах жагсаалт',
-                  style: TextStyle(
-                    color: AppColors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: nameController,
-                      style: const TextStyle(color: AppColors.white),
-                      decoration: const InputDecoration(
-                        hintText: 'Нэр',
-                        hintStyle: TextStyle(color: AppColors.textPlaceholder),
+              child: StatefulBuilder(
+                builder: (context, setState) {
+                  return AlertDialog(
+                    backgroundColor: AppColors.blackElevated.withValues(alpha: 0.85),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      side: BorderSide(
+                        color: AppColors.borderSubtle.withValues(alpha: 0.8),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: descController,
-                      style: const TextStyle(color: AppColors.white),
-                      decoration: const InputDecoration(
-                        hintText: 'Тайлбар (Заавал биш)',
-                        hintStyle: TextStyle(color: AppColors.textPlaceholder),
-                      ),
-                    ),
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text(
-                      'Цуцлах',
-                      style: TextStyle(color: AppColors.textSecondary),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () async {
-                      final name = nameController.text.trim();
-                      if (name.isNotEmpty) {
-                        try {
-                          await _libraryRepository.createPlaylist(
-                            name: name,
-                            description: descController.text.trim().isNotEmpty
-                                ? descController.text.trim()
-                                : null,
-                          );
-                          if (context.mounted) {
-                            Navigator.of(context).pop();
-                          }
-                          _loadData();
-                        } catch (e) {
-                          if (context.mounted) {
-                             CustomToast.show(
-                               context,
-                               'Жагсаалт үүсгэхэд алдаа гарлаа: $e',
-                               isError: true,
-                             );
-                          }
-                        }
-                      }
-                    },
-                    child: const Text(
-                      'Үүсгэх',
+                    title: const Text(
+                      'Шинэ тоглуулах жагсаалт',
                       style: TextStyle(
                         color: AppColors.white,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
-                ],
+                    content: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextField(
+                            controller: nameController,
+                            style: const TextStyle(color: AppColors.white),
+                            decoration: const InputDecoration(
+                              hintText: 'Нэр',
+                              hintStyle: TextStyle(color: AppColors.textPlaceholder),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: descController,
+                            style: const TextStyle(color: AppColors.white),
+                            decoration: const InputDecoration(
+                              hintText: 'Тайлбар (Заавал биш)',
+                              hintStyle: TextStyle(color: AppColors.textPlaceholder),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          ImageSelector(
+                            title: 'Хавтасны зураг',
+                            subtitle: 'Зураг сонгох',
+                            icon: Icons.image_rounded,
+                            height: 110,
+                            onImageSelected: (bytes, filename) {
+                              coverBytes = bytes;
+                              coverFilename = filename;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Нийтэд нээлттэй болгох',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              Switch(
+                                value: isPublic,
+                                onChanged: (val) {
+                                  setState(() {
+                                    isPublic = val;
+                                  });
+                                },
+                                activeThumbColor: AppColors.white,
+                                activeTrackColor: AppColors.grey700,
+                                inactiveThumbColor: AppColors.grey400,
+                                inactiveTrackColor: AppColors.blackSurface,
+                              ),
+                            ],
+                          ),
+                          if (isUploading) ...[
+                            const SizedBox(height: 12),
+                            const LinearProgressIndicator(color: AppColors.white, backgroundColor: AppColors.grey800),
+                          ],
+                        ],
+                      ),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: isUploading ? null : () => Navigator.of(dialogContext).pop(),
+                        child: const Text(
+                          'Цуцлах',
+                          style: TextStyle(color: AppColors.textSecondary),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: isUploading
+                            ? null
+                            : () async {
+                                final name = nameController.text.trim();
+                                if (name.isNotEmpty) {
+                                  setState(() {
+                                    isUploading = true;
+                                  });
+                                  try {
+                                    String? coverUrl;
+                                    if (coverBytes != null && coverFilename != null) {
+                                      coverUrl = await _libraryRepository.uploadCover(
+                                        coverBytes!,
+                                        coverFilename!,
+                                      );
+                                    }
+
+                                    await _libraryRepository.createPlaylist(
+                                      name: name,
+                                      description: descController.text.trim().isNotEmpty
+                                          ? descController.text.trim()
+                                          : null,
+                                      coverUrl: coverUrl,
+                                      visibility: isPublic ? 'public' : 'private',
+                                    );
+
+                                    if (dialogContext.mounted) {
+                                      Navigator.of(dialogContext).pop();
+                                    }
+                                    _loadData();
+                                  } catch (e) {
+                                    setState(() {
+                                      isUploading = false;
+                                    });
+                                    if (dialogContext.mounted) {
+                                      CustomToast.show(
+                                        dialogContext,
+                                        'Жагсаалт үүсгэхэд алдаа гарлаа: $e',
+                                        isError: true,
+                                      );
+                                    }
+                                  }
+                                }
+                              },
+                        child: const Text(
+                          'Үүсгэх',
+                          style: TextStyle(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -423,14 +495,22 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
+                            image: playlist.coverUrl != null
+                                ? DecorationImage(
+                                    image: NetworkImage('${AudioPlayerService.baseUrl}${playlist.coverUrl}'),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
                           ),
-                          child: const Center(
-                            child: Icon(
-                              Icons.playlist_play_rounded,
-                              color: AppColors.white,
-                              size: 48,
-                            ),
-                          ),
+                          child: playlist.coverUrl != null
+                              ? const SizedBox.shrink()
+                              : const Center(
+                                  child: Icon(
+                                    Icons.playlist_play_rounded,
+                                    color: AppColors.white,
+                                    size: 48,
+                                  ),
+                                ),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -472,12 +552,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
         children: [
           const Text(
             'Миний сан',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              letterSpacing: -0.8,
-            ),
+            style: AppTypography.screenTitle,
           ),
           const SizedBox(height: 16),
           _buildTabSelector(),

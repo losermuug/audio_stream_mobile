@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
+import 'package:streaming_app/shared/theme/typography.dart';
 import 'package:streaming_app/features/home/domain/track.dart';
 import 'package:streaming_app/shared/widgets/custom_text_field.dart';
 import 'package:streaming_app/shared/widgets/gradient_album_art.dart';
@@ -27,56 +28,99 @@ class _Genre {
   });
 }
 
-const List<_Genre> _genres = [
-  _Genre(
-    name: 'Поп',
-    colorA: Color(0xFF8E2DE2),
-    colorB: Color(0xFF4A00E0),
-    icon: Icons.star_rounded,
-  ),
-  _Genre(
-    name: 'Хип-хоп',
-    colorA: Color(0xFF1A1A2E),
-    colorB: Color(0xFFE94560),
-    icon: Icons.graphic_eq_rounded,
-  ),
-  _Genre(
-    name: 'Рок',
-    colorA: Color(0xFF2C3E50),
-    colorB: Color(0xFFE74C3C),
-    icon: Icons.electric_bolt_rounded,
-  ),
-  _Genre(
-    name: 'Жазз',
-    colorA: Color(0xFF1A472A),
-    colorB: Color(0xFF2ECC71),
-    icon: Icons.piano_rounded,
-  ),
-  _Genre(
-    name: 'Акустик',
-    colorA: Color(0xFF4A2F00),
-    colorB: Color(0xFFD4A017),
-    icon: Icons.music_note_rounded,
-  ),
-  _Genre(
-    name: 'Лофи',
-    colorA: Color(0xFF0D2137),
-    colorB: Color(0xFF1B6CA8),
-    icon: Icons.headphones_rounded,
-  ),
-  _Genre(
-    name: 'Кино',
-    colorA: Color(0xFF2D132C),
-    colorB: Color(0xFFEE4540),
-    icon: Icons.movie_rounded,
-  ),
-  _Genre(
-    name: 'Электрон',
-    colorA: Color(0xFF0F0C29),
-    colorB: Color(0xFF24243E),
-    icon: Icons.flash_on_rounded,
-  ),
+const List<String> _staticGenres = [
+  'Поп',
+  'Хип-хоп',
+  'Рок',
+  'Жазз',
+  'Акустик',
+  'Лофи',
+  'Кино',
+  'Электрон',
 ];
+
+_Genre _getGenreVisuals(String name) {
+  final slug = name.toLowerCase().trim().replaceAll(RegExp(r'[^a-z0-9а-яөүё]+'), '-');
+  
+  if (slug == 'pop' || slug == 'поп') {
+    return _Genre(
+      name: name,
+      colorA: const Color(0xFF8E2DE2),
+      colorB: const Color(0xFF4A00E0),
+      icon: Icons.star_rounded,
+    );
+  } else if (slug == 'hip-hop' || slug == 'хип-хоп' || slug == 'rap' || slug == 'рэп') {
+    return _Genre(
+      name: name,
+      colorA: const Color(0xFF1A1A2E),
+      colorB: const Color(0xFFE94560),
+      icon: Icons.graphic_eq_rounded,
+    );
+  } else if (slug == 'rock' || slug == 'рок' || slug == 'classic' || slug == 'классик') {
+    return _Genre(
+      name: name,
+      colorA: const Color(0xFF2C3E50),
+      colorB: const Color(0xFFE74C3C),
+      icon: Icons.electric_bolt_rounded,
+    );
+  } else if (slug == 'jazz' || slug == 'жазз') {
+    return _Genre(
+      name: name,
+      colorA: const Color(0xFF1A472A),
+      colorB: const Color(0xFF2ECC71),
+      icon: Icons.piano_rounded,
+    );
+  } else if (slug == 'acoustic' || slug == 'акустик' || slug == 'folk' || slug == 'ардын') {
+    return _Genre(
+      name: name,
+      colorA: const Color(0xFF4A2F00),
+      colorB: const Color(0xFFD4A017),
+      icon: Icons.music_note_rounded,
+    );
+  } else if (slug == 'lo-fi' || slug == 'лофи' || slug == 'chill' || slug == 'чилл') {
+    return _Genre(
+      name: name,
+      colorA: const Color(0xFF0D2137),
+      colorB: const Color(0xFF1B6CA8),
+      icon: Icons.headphones_rounded,
+    );
+  } else if (slug == 'movie' || slug == 'кино' || slug == 'soundtrack') {
+    return _Genre(
+      name: name,
+      colorA: const Color(0xFF2D132C),
+      colorB: const Color(0xFFEE4540),
+      icon: Icons.movie_rounded,
+    );
+  } else if (slug == 'electronic' || slug == 'электрон' || slug == 'dance') {
+    return _Genre(
+      name: name,
+      colorA: const Color(0xFF0F0C29),
+      colorB: const Color(0xFF24243E),
+      icon: Icons.flash_on_rounded,
+    );
+  } else if (slug == 'indie' || slug == 'инди' || slug == 'alternative' || slug == 'альтернатив') {
+    return _Genre(
+      name: name,
+      colorA: const Color(0xFF3A6073),
+      colorB: const Color(0xFF3A6073),
+      icon: Icons.art_track_rounded,
+    );
+  } else if (slug == 'r-b' || slug == 'r&b' || slug == 'r-and-b') {
+    return _Genre(
+      name: name,
+      colorA: const Color(0xFF833AB4),
+      colorB: const Color(0xFFFD1D1D),
+      icon: Icons.favorite_rounded,
+    );
+  }
+
+  return _Genre(
+    name: name,
+    colorA: const Color(0xFF3F4C6B),
+    colorB: const Color(0xFF3F4C6B),
+    icon: Icons.music_note_rounded,
+  );
+}
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -102,6 +146,8 @@ class _SearchScreenState extends State<SearchScreen>
   String _query = '';
   List<Track> _results = [];
   bool _isSearching = false;
+  List<_Genre> _loadedGenres = [];
+  bool _isLoadingGenres = false;
 
   late final AnimationController _entryController;
   late final Animation<double> _barFade;
@@ -153,6 +199,7 @@ class _SearchScreenState extends State<SearchScreen>
     _entryController.forward();
 
     _searchController.addListener(_onQueryChanged);
+    _loadGenres();
   }
 
   void _onQueryChanged() {
@@ -170,6 +217,28 @@ class _SearchScreenState extends State<SearchScreen>
     } else {
       _debounceTimer = Timer(const Duration(milliseconds: 350), () {
         _performSearch(q);
+      });
+    }
+  }
+
+  Future<void> _loadGenres() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingGenres = true;
+    });
+    try {
+      final names = await _searchRepository.fetchGenres();
+      if (!mounted) return;
+      setState(() {
+        _loadedGenres = names.map((name) => _getGenreVisuals(name)).toList();
+        _isLoadingGenres = false;
+      });
+    } catch (e) {
+      debugPrint('Failed to load genres: $e');
+      if (!mounted) return;
+      setState(() {
+        _loadedGenres = _staticGenres.map((name) => _getGenreVisuals(name)).toList();
+        _isLoadingGenres = false;
       });
     }
   }
@@ -254,12 +323,7 @@ class _SearchScreenState extends State<SearchScreen>
         children: [
           const Text(
             'Хайх',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-            ),
+            style: AppTypography.screenTitle,
           ),
           const SizedBox(height: 14),
           CustomTextField(
@@ -323,31 +387,64 @@ class _SearchScreenState extends State<SearchScreen>
             ),
           ),
         ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 160),
-          sliver: SliverGrid(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final genre = _genres[index];
-                return _GenreCard(
-                  genre: genre,
-                  onTap: () {
-                    _searchController.text = genre.name;
-                    _debounceTimer?.cancel();
-                    _performSearch(genre.name);
-                  },
-                );
-              },
-              childCount: _genres.length,
-            ),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.8,
-            ),
-          ),
-        ),
+        _isLoadingGenres
+            ? SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 160),
+                sliver: SliverGrid(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.grey800.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.textSecondary),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                    childCount: 4,
+                  ),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.8,
+                  ),
+                ),
+              )
+            : SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 160),
+                sliver: SliverGrid(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final genre = _loadedGenres[index];
+                      return _GenreCard(
+                        genre: genre,
+                        onTap: () {
+                          _searchController.text = genre.name;
+                          _debounceTimer?.cancel();
+                          _performSearch(genre.name);
+                        },
+                      );
+                    },
+                    childCount: _loadedGenres.length,
+                  ),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.8,
+                  ),
+                ),
+              ),
       ],
     );
   }

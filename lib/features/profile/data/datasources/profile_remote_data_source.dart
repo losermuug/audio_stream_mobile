@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:streaming_app/shared/services/api_client.dart';
 import 'package:streaming_app/shared/services/audio_player_service.dart';
 import 'package:streaming_app/shared/services/auth_session.dart';
@@ -10,44 +11,15 @@ class ProfileRemoteDataSource {
 
   ProfileRemoteDataSource({required this.apiClient});
 
-  Future<String> fetchFirstArtistId() async {
-    final url = Uri.parse('${AudioPlayerService.baseUrl}/graphql');
-    final query = {
-      'query': '''
-        query {
-          artists(limit: 1) {
-            id
-          }
-        }
-      '''
-    };
-
-    final response = await apiClient.post(
-      url,
-      body: jsonEncode(query),
-    );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      if (data['errors'] != null) {
-        throw Exception(data['errors'][0]['message']);
-      }
-      final List list = data['data']?['artists'] ?? [];
-      if (list.isNotEmpty) {
-        return list.first['id'] ?? '';
-      }
-      return '';
-    } else {
-      throw Exception('Failed to fetch artist ID: ${response.statusCode}');
-    }
-  }
-
   Future<Map<String, dynamic>> uploadTrack({
     required String title,
-    required String artistId,
     required String genre,
     required List<int> audioBytes,
-    required String filename,
+    required String audioFilename,
+    List<int>? coverBytes,
+    String? coverFilename,
+    String? albumName,
+    required int durationMs,
   }) async {
     final url = Uri.parse('${AudioPlayerService.baseUrl}/tracks/upload');
     final request = http.MultipartRequest('POST', url);
@@ -58,18 +30,34 @@ class ProfileRemoteDataSource {
     }
 
     request.fields['title'] = title;
-    request.fields['artistId'] = artistId;
-    request.fields['durationMs'] = '200000'; // 3:20
+    request.fields['durationMs'] = durationMs.toString();
     request.fields['isPublished'] = 'true';
     request.fields['genres'] = genre;
+    if (albumName != null && albumName.isNotEmpty) {
+      request.fields['albumTitle'] = albumName;
+    }
 
     request.files.add(
       http.MultipartFile.fromBytes(
         'audio',
         audioBytes,
-        filename: filename,
+        filename: audioFilename,
+        contentType: MediaType('audio', 'mpeg'),
       ),
     );
+
+    if (coverBytes != null && coverFilename != null) {
+      final ext = coverFilename.split('.').last.toLowerCase();
+      final mimeSubtype = (ext == 'jpg' || ext == 'jpeg') ? 'jpeg' : (ext == 'png' ? 'png' : 'webp');
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'cover',
+          coverBytes,
+          filename: coverFilename,
+          contentType: MediaType('image', mimeSubtype),
+        ),
+      );
+    }
 
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
@@ -158,6 +146,39 @@ class ProfileRemoteDataSource {
       return data['data']?['changePassword'] ?? false;
     } else {
       throw Exception('Нууц үг солиход алдаа гарлаа: ${response.statusCode}');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchGenres() async {
+    final url = Uri.parse('${AudioPlayerService.baseUrl}/graphql');
+    final query = {
+      'query': '''
+        query GetGenres {
+          genres {
+            id
+            name
+            slug
+          }
+        }
+      '''
+    };
+
+    final response = await apiClient.post(
+      url,
+      body: jsonEncode(query),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['errors'] != null) {
+        throw Exception(data['errors'][0]['message']);
+      }
+      final List raw = data['data']?['genres'] ?? [];
+      return List<Map<String, dynamic>>.from(
+        raw.map((item) => Map<String, dynamic>.from(item)),
+      );
+    } else {
+      throw Exception('Failed to load genres: ${response.statusCode}');
     }
   }
 }

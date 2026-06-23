@@ -5,7 +5,11 @@ abstract class ProfileRepository {
     required String title,
     required String genre,
     required List<int> audioBytes,
-    required String filename,
+    required String audioFilename,
+    List<int>? coverBytes,
+    String? coverFilename,
+    String? albumName,
+    required int durationMs,
   });
 
   Future<void> updateProfile({
@@ -17,4 +21,6 @@ abstract class ProfileRepository {
     required String oldPassword,
     required String newPassword,
   });
+
+  Future<List<String>> fetchGenres();
 }

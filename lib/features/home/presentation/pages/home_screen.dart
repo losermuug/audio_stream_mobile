@@ -130,7 +130,6 @@ class _HomeScreenState extends State<HomeScreen>
 
         if (tracks.isNotEmpty) {
           _heroTrack = tracks.first;
-          _currentTrack = tracks.first;
         }
       });
     } catch (e) {
@@ -524,6 +523,7 @@ class _HomeScreenState extends State<HomeScreen>
   // ─────────────────────────────────────────────
 
   Widget _buildHeader() {
+    final String sessionName = AuthSession().userName ?? 'Хэрэглэгч';
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -540,9 +540,9 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ),
             const SizedBox(height: 2),
-            const Text(
-              'Мөнхзул',
-              style: TextStyle(
+            Text(
+              sessionName,
+              style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 22,
                 fontWeight: FontWeight.w600,

@@ -26,7 +26,7 @@ class AudioPlayerService {
 
     // For physical device testing, we use your MacBook's local network IP as fallback.
     // Make sure your phone and MacBook are connected to the same Wi-Fi network.
-    const String macbookIp = '10.1.0.17';
+    const String macbookIp = '10.1.0.18';
 
     if (kIsWeb) {
       return 'http://localhost:8080';

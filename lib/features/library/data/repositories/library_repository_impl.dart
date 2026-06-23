@@ -24,8 +24,8 @@ class LibraryRepositoryImpl implements LibraryRepository {
   }
 
   @override
-  Future<Playlist> createPlaylist({required String name, String? description}) async {
-    final data = await remoteDataSource.createPlaylistGraphQL(name: name, description: description);
+  Future<Playlist> createPlaylist({required String name, String? description, String? coverUrl, String? visibility}) async {
+    final data = await remoteDataSource.createPlaylistGraphQL(name: name, description: description, coverUrl: coverUrl, visibility: visibility);
     return _mapJsonToPlaylist(data);
   }
 
@@ -47,6 +47,9 @@ class LibraryRepositoryImpl implements LibraryRepository {
       description: item['description'],
       coverUrl: item['coverUrl'],
       tracks: playlistTracks,
+      visibility: item['visibility'],
+      isLiked: item['isLiked'] ?? false,
+      likeCount: int.tryParse(item['likeCount'] ?? '0') ?? 0,
     );
   }
 
@@ -68,5 +71,31 @@ class LibraryRepositoryImpl implements LibraryRepository {
       imagePath: item['coverUrl'],
       isLiked: item['isLiked'] ?? false,
     );
+  }
+
+  @override
+  Future<int> getPlayHistoryCount() async {
+    try {
+      final data = await remoteDataSource.fetchPlayHistoryGraphQL(limit: 100);
+      final List rawList = data['playHistory'] ?? [];
+      return rawList.length;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  @override
+  Future<String> uploadCover(List<int> bytes, String filename) async {
+    return remoteDataSource.uploadCover(bytes, filename);
+  }
+
+  @override
+  Future<bool> likePlaylist(String playlistId) async {
+    return remoteDataSource.likePlaylistGraphQL(playlistId);
+  }
+
+  @override
+  Future<bool> unlikePlaylist(String playlistId) async {
+    return remoteDataSource.unlikePlaylistGraphQL(playlistId);
   }
 }

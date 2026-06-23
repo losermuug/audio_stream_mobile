@@ -33,6 +33,9 @@ class HomeRepositoryImpl implements HomeRepository {
         description: item['description'],
         coverUrl: item['coverUrl'],
         tracks: playlistTracks,
+        visibility: item['visibility'],
+        isLiked: item['isLiked'] ?? false,
+        likeCount: int.tryParse(item['likeCount'] ?? '0') ?? 0,
       );
     }).toList();
   }

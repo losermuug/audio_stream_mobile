@@ -6,7 +6,6 @@ class PublishSuccessView extends StatelessWidget {
   final bool isAlbum;
   final String albumName;
   final String selectedGenre;
-  final bool isExplicit;
   final VoidCallback onBackPressed;
 
   const PublishSuccessView({
@@ -15,7 +14,6 @@ class PublishSuccessView extends StatelessWidget {
     required this.isAlbum,
     required this.albumName,
     required this.selectedGenre,
-    required this.isExplicit,
     required this.onBackPressed,
   });
 
@@ -77,7 +75,6 @@ class PublishSuccessView extends StatelessWidget {
                   _buildSuccessDetailRow('Төрөл:', isAlbum ? 'Цомог (Album)' : 'Сингл (Single)'),
                   if (isAlbum) _buildSuccessDetailRow('Цомгийн нэр:', albumName),
                   _buildSuccessDetailRow('Дууны төрөл:', selectedGenre),
-                  _buildSuccessDetailRow('Хязгаарлалт:', isExplicit ? 'Explicit (18+)' : 'Тохиромжтой'),
                 ],
               ),
             ),

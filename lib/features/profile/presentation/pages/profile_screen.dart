@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
+import 'package:streaming_app/shared/theme/typography.dart';
 import 'package:streaming_app/features/home/domain/track.dart';
 import 'package:streaming_app/features/profile/presentation/pages/publish_song_screen.dart';
 import 'package:streaming_app/features/profile/presentation/pages/edit_profile_screen.dart';
@@ -49,13 +50,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
       final likedTracks = await libraryRepo.getLikedTracks();
       final playlists = await libraryRepo.getMyPlaylists();
+      final listenedCount = await libraryRepo.getPlayHistoryCount();
 
       if (mounted) {
         setState(() {
           _likedCount = likedTracks.length;
           _playlistCount = playlists.length;
-          // Set listened tracks count based on MockData or default to a corporate benchmark
-          _listenedCount = MockData.recentlyPlayed.length;
+          _listenedCount = listenedCount;
           _isLoadingStats = false;
         });
       }
@@ -234,14 +235,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               elevation: 0,
               pinned: true,
               centerTitle: false,
+              titleSpacing: 20,
+              automaticallyImplyLeading: false,
               title: const Text(
                 'Профайл',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: -0.5,
-                ),
+                style: AppTypography.screenTitle,
               ),
             ),
 

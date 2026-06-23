@@ -53,6 +53,9 @@ class HomeRemoteDataSource {
             name
             description
             coverUrl
+            visibility
+            isLiked
+            likeCount
             tracks {
               id
               track {

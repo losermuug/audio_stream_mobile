@@ -1,5 +1,12 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:streaming_app/shared/widgets/custom_toast.dart';
+import 'package:streaming_app/shared/widgets/image_selector.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:streaming_app/shared/theme/colors.dart';
+import 'package:streaming_app/shared/theme/typography.dart';
 import 'package:streaming_app/features/home/domain/track.dart';
 import 'package:streaming_app/shared/widgets/custom_text_field.dart';
 import 'package:streaming_app/features/profile/presentation/widgets/publish_selector_card.dart';
@@ -29,17 +36,90 @@ class _PublishSongScreenState extends State<PublishSongScreen> {
   final _albumNameController = TextEditingController();
 
   bool _isAlbum = false; // false = Single, true = Album
-  bool _isExplicit = false;
   String _selectedGenre = 'Хип Хоп';
   bool _hasAudio = false;
-  bool _hasCover = false;
-  String? _fileError;
+
+  List<int>? _audioBytes;
+  String? _audioFilename;
+  int _audioDurationMs = 200000;
+
+  List<int>? _coverBytes;
+  String? _coverFilename;
+
+  bool _isPickingFile = false;
 
   bool _isPublishing = false;
   int _currentStep = 0;
   bool _publishSuccess = false;
 
   late final ProfileRepository _profileRepository;
+
+  void _pickAudio() async {
+    if (_isPickingFile) return;
+    setState(() {
+      _isPickingFile = true;
+    });
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['mp3', 'm4a', 'wav', 'flac', 'aac'],
+        allowMultiple: false,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        List<int> bytes;
+        if (kIsWeb) {
+          bytes = file.bytes!;
+        } else {
+          bytes = file.bytes ?? File(file.path!).readAsBytesSync();
+        }
+
+        setState(() {
+          _audioBytes = bytes;
+          _audioFilename = file.name;
+          _hasAudio = true;
+        });
+
+        try {
+          final player = AudioPlayer();
+          Duration? duration;
+          if (kIsWeb) {
+            duration = await player.setAudioSource(
+              AudioSource.uri(Uri.dataFromBytes(bytes, mimeType: 'audio/mpeg')),
+            );
+          } else if (file.path != null) {
+            duration = await player.setAudioSource(
+              AudioSource.file(file.path!),
+            );
+          }
+          if (duration != null) {
+            setState(() {
+              _audioDurationMs = duration!.inMilliseconds;
+            });
+          }
+          await player.dispose();
+        } catch (e) {
+          debugPrint('Error getting audio duration: $e');
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      CustomToast.show(
+        context,
+        'Аудио файл сонгоход алдаа гарлаа: $e',
+        isError: true,
+      );
+    } finally {
+      setState(() {
+        _isPickingFile = false;
+      });
+    }
+  }
+
+
+
+  List<String> _genres = const ['Хип Хоп', 'Поп', 'Рок', 'Инди', 'R&B'];
+  bool _isLoadingGenres = false;
 
   @override
   void initState() {
@@ -49,9 +129,34 @@ class _PublishSongScreenState extends State<PublishSongScreen> {
         apiClient: ApiClient(),
       ),
     );
+    _loadGenres();
   }
 
-  final List<String> _genres = ['Хип Хоп', 'Поп', 'Рок', 'Инди', 'R&B'];
+  Future<void> _loadGenres() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingGenres = true;
+    });
+    try {
+      final dbGenres = await _profileRepository.fetchGenres();
+      if (!mounted) return;
+      setState(() {
+        if (dbGenres.isNotEmpty) {
+          _genres = dbGenres;
+          if (!_genres.contains(_selectedGenre)) {
+            _selectedGenre = _genres.first;
+          }
+        }
+        _isLoadingGenres = false;
+      });
+    } catch (e) {
+      debugPrint('Failed to load genres for publishing: $e');
+      if (!mounted) return;
+      setState(() {
+        _isLoadingGenres = false;
+      });
+    }
+  }
 
   final List<String> _publishSteps = [
     'Холболтыг бэлдэж байна...',
@@ -70,15 +175,24 @@ class _PublishSongScreenState extends State<PublishSongScreen> {
 
   void _startPublishing() async {
     if (!_formKey.currentState!.validate()) return;
-    if (!_hasAudio || !_hasCover) {
-      setState(() {
-        _fileError = 'Дууны файл болон хавтасны зургийг сонгоно уу';
-      });
+    if (_audioBytes == null || _audioFilename == null) {
+      CustomToast.show(
+        context,
+        'Дууны файл (.mp3) сонгоно уу',
+        isError: true,
+      );
+      return;
+    }
+    if (_coverBytes == null || _coverFilename == null) {
+      CustomToast.show(
+        context,
+        'Хавтасны зураг сонгоно уу',
+        isError: true,
+      );
       return;
     }
 
     setState(() {
-      _fileError = null;
       _isPublishing = true;
       _currentStep = 0;
       _publishSuccess = false;
@@ -95,9 +209,6 @@ class _PublishSongScreenState extends State<PublishSongScreen> {
         _currentStep = 2;
       });
 
-      final List<int> dummyAudioBytes = List.filled(50000, 0);
-      final filename = 'device_track_${DateTime.now().millisecondsSinceEpoch}.mp3';
-
       // Step 3: Performing network upload and DB registration
       setState(() {
         _currentStep = 3;
@@ -106,8 +217,12 @@ class _PublishSongScreenState extends State<PublishSongScreen> {
       final newTrack = await _profileRepository.publishTrack(
         title: _titleController.text.trim(),
         genre: _selectedGenre,
-        audioBytes: dummyAudioBytes,
-        filename: filename,
+        audioBytes: _audioBytes!,
+        audioFilename: _audioFilename!,
+        coverBytes: _coverBytes,
+        coverFilename: _coverFilename,
+        albumName: _isAlbum ? _albumNameController.text.trim() : null,
+        durationMs: _audioDurationMs,
       );
 
       setState(() {
@@ -122,8 +237,13 @@ class _PublishSongScreenState extends State<PublishSongScreen> {
     } catch (e) {
       setState(() {
         _isPublishing = false;
-        _fileError = e.toString().replaceAll('Exception: ', '');
       });
+      if (!mounted) return;
+      CustomToast.show(
+        context,
+        e.toString().replaceAll('Exception: ', ''),
+        isError: true,
+      );
     }
   }
 
@@ -140,11 +260,7 @@ class _PublishSongScreenState extends State<PublishSongScreen> {
         ),
         title: Text(
           _isPublishing ? 'Цацаж байна' : 'Уран бүтээл цацах',
-          style: const TextStyle(
-            color: AppColors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+          style: AppTypography.appBarTitle,
         ),
       ),
       body: SafeArea(
@@ -160,7 +276,6 @@ class _PublishSongScreenState extends State<PublishSongScreen> {
         isAlbum: _isAlbum,
         albumName: _albumNameController.text.trim(),
         selectedGenre: _selectedGenre,
-        isExplicit: _isExplicit,
         onBackPressed: () => Navigator.pop(context),
       );
     }
@@ -252,14 +367,28 @@ class _PublishSongScreenState extends State<PublishSongScreen> {
               const SizedBox(height: 20),
             ],
 
-            // Genre Selector
-            const Text(
-              'Дууны төрөл (Genre)',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
+            Row(
+              children: [
+                const Text(
+                  'Дууны төрөл (Genre)',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (_isLoadingGenres) ...[
+                  const SizedBox(width: 8),
+                  const SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.textSecondary),
+                    ),
+                  ),
+                ],
+              ],
             ),
             const SizedBox(height: 10),
             SizedBox(
@@ -301,85 +430,38 @@ class _PublishSongScreenState extends State<PublishSongScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Explicit Switch
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: BoxDecoration(
-                color: AppColors.cardBackground.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.borderSubtle, width: 0.5),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Насны хязгаартай (Explicit)',
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Дуунд зохисгүй үг хэллэг орсон эсэх',
-                        style: TextStyle(
-                          color: AppColors.textTertiary,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Switch(
-                    value: _isExplicit,
-                    onChanged: (val) => setState(() => _isExplicit = val),
-                    activeThumbColor: AppColors.white,
-                    activeTrackColor: AppColors.grey500,
-                    inactiveThumbColor: AppColors.grey700,
-                    inactiveTrackColor: AppColors.grey900,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
             // File Upload Mock Cards
             Row(
               children: [
                 Expanded(
                   child: MockUploadCard(
                     title: 'Аудио файл (.mp3)',
-                    subtitle: _hasAudio ? 'audio_track.mp3' : 'Дуу сонгох',
+                    subtitle: _hasAudio ? _audioFilename ?? 'audio_track.mp3' : 'Дуу сонгох',
                     icon: Icons.audiotrack_rounded,
                     hasFile: _hasAudio,
-                    onTap: () => setState(() => _hasAudio = !_hasAudio),
+                    onTap: _pickAudio,
                   ),
                 ),
                 const SizedBox(width: 16),
-                Expanded(
-                  child: MockUploadCard(
+                 Expanded(
+                  child: ImageSelector(
                     title: 'Хавтасны зураг',
-                    subtitle: _hasCover ? 'cover_art.png' : 'Зураг сонгох',
+                    subtitle: 'Зураг сонгох',
                     icon: Icons.image_rounded,
-                    hasFile: _hasCover,
-                    onTap: () => setState(() => _hasCover = !_hasCover),
+                    initialBytes: _coverBytes,
+                    initialFilename: _coverFilename,
+                    onImageSelected: (bytes, filename) {
+                      setState(() {
+                        _coverBytes = bytes;
+                        _coverFilename = filename;
+                      });
+                    },
                   ),
                 ),
               ],
             ),
 
-            if (_fileError != null) ...[
-              const SizedBox(height: 12),
-              Center(
-                child: Text(
-                  _fileError!,
-                  style: const TextStyle(color: AppColors.error, fontSize: 12),
-                ),
-              ),
-            ],
+            // Error text removed and replaced by CustomToast
             const SizedBox(height: 40),
 
             // Submit Release Button

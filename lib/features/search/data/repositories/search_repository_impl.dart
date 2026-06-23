@@ -35,4 +35,15 @@ class SearchRepositoryImpl implements SearchRepository {
       isLiked: item['isLiked'] ?? false,
     );
   }
+
+  @override
+  Future<List<String>> fetchGenres() async {
+    try {
+      final list = await remoteDataSource.fetchGenres();
+      return list.map((item) => item['name'] as String).toList();
+    } catch (e) {
+      // Fallback standard genres
+      return const ['Поп', 'Хип Хоп', 'Рок', 'Инди', 'R&B', 'Лофи', 'Акустик'];
+    }
+  }
 }
