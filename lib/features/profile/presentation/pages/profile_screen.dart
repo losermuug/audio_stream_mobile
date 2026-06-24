@@ -323,8 +323,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         },
                       ),
                       SettingTile(
-                        title: 'Миний уран бүтээлүүд',
-                        subtitle: 'Оруулсан дуунуудыг удирдах, хянах',
+                        title: 'Нийтэлсэн дуунууд',
+                        subtitle: 'Нийтэлсэн дуунуудаа удирдах, хянах',
                         icon: Icons.library_music_rounded,
                         last: true,
                         onTap: () {

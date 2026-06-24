@@ -487,28 +487,47 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF1E1E1E), Color(0xFF3A3A3A)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            image: playlist.coverUrl != null
-                                ? DecorationImage(
-                                    image: NetworkImage('${AudioPlayerService.baseUrl}${playlist.coverUrl}'),
-                                    fit: BoxFit.cover,
-                                  )
-                                : null,
-                          ),
-                          child: playlist.coverUrl != null
-                              ? const SizedBox.shrink()
-                              : const Center(
-                                  child: Icon(
-                                    Icons.playlist_play_rounded,
-                                    color: AppColors.white,
-                                    size: 48,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: playlist.coverUrl != null && playlist.coverUrl!.isNotEmpty
+                              ? Image(
+                                  image: AudioPlayerService.getImageProvider(playlist.coverUrl),
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      decoration: const BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [Color(0xFF1E1E1E), Color(0xFF3A3A3A)],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
+                                      ),
+                                      child: const Center(
+                                        child: Icon(
+                                          Icons.playlist_play_rounded,
+                                          color: AppColors.white,
+                                          size: 48,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                )
+                              : Container(
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [Color(0xFF1E1E1E), Color(0xFF3A3A3A)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                  ),
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.playlist_play_rounded,
+                                      color: AppColors.white,
+                                      size: 48,
+                                    ),
                                   ),
                                 ),
                         ),

@@ -254,7 +254,7 @@ class _ManageSongsScreenState extends State<ManageSongsScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'Миний дуунууд',
+          'Нийтэлсэн дуунууд',
           style: AppTypography.appBarTitle,
         ),
       ),

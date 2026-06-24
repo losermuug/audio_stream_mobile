@@ -20,6 +20,7 @@ import 'package:streaming_app/features/search/presentation/pages/search_screen.d
 import 'package:streaming_app/features/home/presentation/pages/now_playing_screen.dart';
 import 'package:streaming_app/features/profile/presentation/pages/profile_screen.dart';
 import 'package:streaming_app/features/library/presentation/pages/library_screen.dart';
+import 'package:streaming_app/features/library/presentation/pages/playlist_detail_screen.dart';
 import 'package:streaming_app/shared/services/audio_player_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:streaming_app/shared/bloc/player/player_bloc.dart';
@@ -738,19 +739,20 @@ class _HomeScreenState extends State<HomeScreen>
                 defaultIcon: Icons.playlist_play_rounded,
                 imagePath: playlist.coverUrl,
                 onTap: () {
-                  if (playlist.tracks.isNotEmpty) {
-                    setState(() {
-                      _playlist.clear();
-                      _playlist.addAll(playlist.tracks);
-                    });
-                    _onTrackSelected(playlist.tracks.first);
-                  } else {
-                    CustomToast.show(
-                      context,
-                      '${playlist.name} жагсаалт хоосон байна',
-                      isError: true,
-                    );
-                  }
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => PlaylistDetailScreen(
+                        playlist: playlist,
+                        onTrackSelected: (track) {
+                          setState(() {
+                            _playlist.clear();
+                            _playlist.addAll(playlist.tracks);
+                          });
+                          _onTrackSelected(track);
+                        },
+                      ),
+                    ),
+                  );
                 },
               ),
             );
