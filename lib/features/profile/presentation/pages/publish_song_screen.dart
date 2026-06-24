@@ -259,7 +259,7 @@ class _PublishSongScreenState extends State<PublishSongScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          _isPublishing ? 'Цацаж байна' : 'Уран бүтээл цацах',
+          _isPublishing ? 'Нийтлэж байна' : 'Дуу нийтлэх',
           style: AppTypography.appBarTitle,
         ),
       ),

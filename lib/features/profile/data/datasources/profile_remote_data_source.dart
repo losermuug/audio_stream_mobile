@@ -181,4 +181,170 @@ class ProfileRemoteDataSource {
       throw Exception('Failed to load genres: ${response.statusCode}');
     }
   }
+
+  Future<List<Map<String, dynamic>>> fetchMyTracks() async {
+    final url = Uri.parse('${AudioPlayerService.baseUrl}/graphql');
+    final query = {
+      'query': r'''
+        query GetMyTracks {
+          myTracks {
+            id
+            title
+            coverUrl
+            playCount
+            likeCount
+            isPublished
+            durationMs
+            artist {
+              name
+            }
+            genres {
+              name
+            }
+          }
+        }
+      '''
+    };
+
+    final response = await apiClient.post(
+      url,
+      body: jsonEncode(query),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['errors'] != null) {
+        throw Exception(data['errors'][0]['message']);
+      }
+      final List raw = data['data']?['myTracks'] ?? [];
+      return List<Map<String, dynamic>>.from(
+        raw.map((item) => Map<String, dynamic>.from(item)),
+      );
+    } else {
+      throw Exception('Миний дуунуудыг авахад алдаа гарлаа: ${response.statusCode}');
+    }
+  }
+
+  Future<Map<String, dynamic>> updateTrackMetadata({
+    required String id,
+    String? title,
+    String? coverUrl,
+    bool? isPublished,
+    List<String>? genres,
+  }) async {
+    final url = Uri.parse('${AudioPlayerService.baseUrl}/graphql');
+    final query = {
+      'query': r'''
+        mutation UpdateTrackMetadata($input: UpdateTrackMetadataInput!) {
+          updateTrackMetadata(input: $input) {
+            id
+            title
+            coverUrl
+            playCount
+            likeCount
+            isPublished
+            durationMs
+            artist {
+              name
+            }
+            genres {
+              name
+            }
+          }
+        }
+      ''',
+      'variables': {
+        'input': <String, dynamic>{
+          'id': id,
+          'title': title,
+          'coverUrl': coverUrl,
+          'isPublished': isPublished,
+          'genres': genres,
+        }..removeWhere((key, value) => value == null)
+      }
+    };
+
+    final response = await apiClient.post(
+      url,
+      body: jsonEncode(query),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['errors'] != null) {
+        throw Exception(data['errors'][0]['message']);
+      }
+      return data['data']?['updateTrackMetadata'] ?? {};
+    } else {
+      throw Exception('Дууны мэдээллийг өөрчлөхөд алдаа гарлаа: ${response.statusCode}');
+    }
+  }
+
+  Future<bool> deleteTrack(String id) async {
+    final url = Uri.parse('${AudioPlayerService.baseUrl}/graphql');
+    final query = {
+      'query': r'''
+        mutation DeleteTrack($id: ID!) {
+          deleteTrack(id: $id)
+        }
+      ''',
+      'variables': {
+        'id': id,
+      }
+    };
+
+    final response = await apiClient.post(
+      url,
+      body: jsonEncode(query),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['errors'] != null) {
+        throw Exception(data['errors'][0]['message']);
+      }
+      return data['data']?['deleteTrack'] ?? false;
+    } else {
+      throw Exception('Дууг устгахад алдаа гарлаа: ${response.statusCode}');
+    }
+  }
+
+  Future<String> uploadCoverImage(List<int> bytes, String filename) async {
+    final url = Uri.parse('${AudioPlayerService.baseUrl}/tracks/upload-cover');
+    final request = http.MultipartRequest('POST', url);
+
+    final token = AuthSession().accessToken;
+    if (token != null) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+
+    final ext = filename.split('.').last.toLowerCase();
+    final mimeSubtype = (ext == 'jpg' || ext == 'jpeg') ? 'jpeg' : (ext == 'png' ? 'png' : 'webp');
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'cover',
+        bytes,
+        filename: filename,
+        contentType: MediaType('image', mimeSubtype),
+      ),
+    );
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['coverUrl'] ?? '';
+    } else {
+      if (response.statusCode == 401) {
+        await AuthSession().clearSession();
+        navigatorKey.currentState?.pushNamedAndRemoveUntil('/', (route) => false);
+      }
+      Map<String, dynamic> errJson = {};
+      try {
+        errJson = jsonDecode(response.body);
+      } catch (_) {}
+      throw Exception(errJson['message'] ?? 'Failed to upload cover: ${response.statusCode}');
+    }
+  }
 }

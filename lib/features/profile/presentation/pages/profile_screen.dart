@@ -6,6 +6,7 @@ import 'package:streaming_app/features/home/domain/track.dart';
 import 'package:streaming_app/features/profile/presentation/pages/publish_song_screen.dart';
 import 'package:streaming_app/features/profile/presentation/pages/edit_profile_screen.dart';
 import 'package:streaming_app/features/profile/presentation/pages/change_password_screen.dart';
+import 'package:streaming_app/features/profile/presentation/pages/manage_songs_screen.dart';
 import 'package:streaming_app/features/profile/presentation/widgets/user_identity_card.dart';
 import 'package:streaming_app/features/profile/presentation/widgets/setting_tile.dart';
 import 'package:streaming_app/shared/services/auth_session.dart';
@@ -300,12 +301,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         },
                       ),
                       SettingTile(
-                        title: 'Уран бүтээл цацах',
+                        title: 'Дуу нийтлэх',
                         subtitle: AuthSession().userRole == 'artist' 
                             ? 'Шинэ дуу системд оруулах' 
-                            : 'Уран бүтээлч эрхээр цацах',
+                            : 'Уран бүтээлч эрхээр нийтлэх',
                         icon: Icons.album_rounded,
-                        last: true,
                         onTap: () {
                           Navigator.push(
                             context,
@@ -316,6 +316,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   _loadStats();
                                 },
                               ),
+                            ),
+                          ).then((_) {
+                            _loadStats();
+                          });
+                        },
+                      ),
+                      SettingTile(
+                        title: 'Миний уран бүтээлүүд',
+                        subtitle: 'Оруулсан дуунуудыг удирдах, хянах',
+                        icon: Icons.library_music_rounded,
+                        last: true,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ManageSongsScreen(),
                             ),
                           ).then((_) {
                             _loadStats();
@@ -338,7 +354,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SettingTile(
                         title: 'Мэдэгдэл',
-                        subtitle: 'Шинэ уран бүтээл, мэдээллийн мэдэгдэл',
+                        subtitle: 'Шинэ мэдэгдэл болон мэдээллийн тохиргоо',
                         icon: Icons.notifications_none_rounded,
                         trailingText: 'Асаалттай',
                         last: true,

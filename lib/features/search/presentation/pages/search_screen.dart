@@ -327,7 +327,7 @@ class _SearchScreenState extends State<SearchScreen>
           ),
           const SizedBox(height: 14),
           CustomTextField(
-            hintText: 'Дуу, уран бүтээлч хайх...',
+            hintText: 'Дуу болон дуучнаар хайх...',
             controller: _searchController,
             focusNode: _focusNode,
             textInputAction: TextInputAction.search,

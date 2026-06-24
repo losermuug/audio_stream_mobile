@@ -23,4 +23,18 @@ abstract class ProfileRepository {
   });
 
   Future<List<String>> fetchGenres();
+
+  Future<List<Track>> fetchMyTracks();
+
+  Future<Track> updateTrack({
+    required String id,
+    String? title,
+    String? coverUrl,
+    bool? isPublished,
+    List<String>? genres,
+  });
+
+  Future<bool> deleteTrack(String id);
+
+  Future<String> uploadCoverImage(List<int> bytes, String filename);
 }

@@ -8,6 +8,10 @@ class Track {
   final List<Color> gradientColors;
   final bool isLiked;
   final String? imagePath;
+  final int playCount;
+  final int likeCount;
+  final bool isPublished;
+  final List<String> genres;
 
   const Track({
     required this.id,
@@ -17,6 +21,10 @@ class Track {
     required this.gradientColors,
     this.isLiked = false,
     this.imagePath,
+    this.playCount = 0,
+    this.likeCount = 0,
+    this.isPublished = true,
+    this.genres = const [],
   });
 
   Track copyWith({
@@ -27,6 +35,10 @@ class Track {
     List<Color>? gradientColors,
     bool? isLiked,
     String? imagePath,
+    int? playCount,
+    int? likeCount,
+    bool? isPublished,
+    List<String>? genres,
   }) {
     return Track(
       id: id ?? this.id,
@@ -36,6 +48,10 @@ class Track {
       gradientColors: gradientColors ?? this.gradientColors,
       isLiked: isLiked ?? this.isLiked,
       imagePath: imagePath ?? this.imagePath,
+      playCount: playCount ?? this.playCount,
+      likeCount: likeCount ?? this.likeCount,
+      isPublished: isPublished ?? this.isPublished,
+      genres: genres ?? this.genres,
     );
   }
 }

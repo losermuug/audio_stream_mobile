@@ -8,6 +8,28 @@ class ProfileRepositoryImpl implements ProfileRepository {
 
   ProfileRepositoryImpl({required this.remoteDataSource});
 
+  Track _mapJsonToTrack(Map<String, dynamic> trackJson) {
+    final int durationMs = trackJson['durationMs'] ?? 0;
+    final List<dynamic> genresJson = trackJson['genres'] ?? [];
+    final List<String> genres = genresJson.map((item) => (item['name'] ?? '').toString()).toList();
+
+    return Track(
+      id: trackJson['id'] ?? '',
+      title: trackJson['title'] ?? '',
+      artist: trackJson['artist']?['name'] ?? 'Уран Бүтээлч',
+      duration: _formatDuration(durationMs),
+      gradientColors: const [
+        Color(0xFF2C3E50),
+        Color(0xFFFD746C),
+      ],
+      imagePath: trackJson['coverUrl'],
+      playCount: int.tryParse(trackJson['playCount']?.toString() ?? '0') ?? 0,
+      likeCount: int.tryParse(trackJson['likeCount']?.toString() ?? '0') ?? 0,
+      isPublished: trackJson['isPublished'] ?? true,
+      genres: genres,
+    );
+  }
+
   @override
   Future<Track> publishTrack({
     required String title,
@@ -30,17 +52,7 @@ class ProfileRepositoryImpl implements ProfileRepository {
       durationMs: durationMs,
     );
 
-    return Track(
-      id: trackJson['id'] ?? '',
-      title: trackJson['title'] ?? '',
-      artist: trackJson['artist']?['name'] ?? 'Уран Бүтээлч',
-      duration: _formatDuration(durationMs),
-      gradientColors: const [
-        Color(0xFF2C3E50),
-        Color(0xFFFD746C),
-      ],
-      imagePath: trackJson['coverUrl'],
-    );
+    return _mapJsonToTrack(trackJson);
   }
 
   String _formatDuration(int ms) {
@@ -80,5 +92,39 @@ class ProfileRepositoryImpl implements ProfileRepository {
     } catch (e) {
       return const ['Хип Хоп', 'Поп', 'Рок', 'Инди', 'R&B'];
     }
+  }
+
+  @override
+  Future<List<Track>> fetchMyTracks() async {
+    final list = await remoteDataSource.fetchMyTracks();
+    return list.map((item) => _mapJsonToTrack(item)).toList();
+  }
+
+  @override
+  Future<Track> updateTrack({
+    required String id,
+    String? title,
+    String? coverUrl,
+    bool? isPublished,
+    List<String>? genres,
+  }) async {
+    final trackJson = await remoteDataSource.updateTrackMetadata(
+      id: id,
+      title: title,
+      coverUrl: coverUrl,
+      isPublished: isPublished,
+      genres: genres,
+    );
+    return _mapJsonToTrack(trackJson);
+  }
+
+  @override
+  Future<bool> deleteTrack(String id) async {
+    return await remoteDataSource.deleteTrack(id);
+  }
+
+  @override
+  Future<String> uploadCoverImage(List<int> bytes, String filename) async {
+    return await remoteDataSource.uploadCoverImage(bytes, filename);
   }
 }
